@@ -6,6 +6,36 @@ import (
 	"github.com/umar5678/go-backend/internal/models"
 )
 
+// CategoryWithTabsResponse - Complete category with tabs
+type CategoryWithTabsResponse struct {
+	ID          uint                 `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	IconURL     string               `json:"iconUrl"`
+	BannerImage string               `json:"bannerImage"`
+	Highlights  []string             `json:"highlights"`
+	IsActive    bool                 `json:"isActive"`
+	SortOrder   int                  `json:"sortOrder"`
+	CreatedAt   time.Time            `json:"createdAt"`
+	Tabs        []ServiceTabResponse `json:"tabs"`
+}
+
+// ServiceTabResponse - Tab with services count
+type ServiceTabResponse struct {
+	ID            uint      `json:"id"`
+	CategoryID    uint      `json:"categoryId"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	IconURL       string    `json:"iconUrl"`
+	BannerTitle   string    `json:"bannerTitle,omitempty"`
+	BannerDesc    string    `json:"bannerDescription,omitempty"`
+	BannerImage   string    `json:"bannerImage,omitempty"`
+	IsActive      bool      `json:"isActive"`
+	SortOrder     int       `json:"sortOrder"`
+	ServicesCount int       `json:"servicesCount"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
 // ServiceCategoryResponse for category listings
 type ServiceCategoryResponse struct {
 	ID          uint      `json:"id"`
@@ -37,7 +67,7 @@ func ToServiceCategoryList(cats []models.ServiceCategory) []*ServiceCategoryResp
 	return result
 }
 
-// ServiceResponse for detailed service info
+// ServiceResponse for detailed service info (legacy - consider using ServiceDetailResponse)
 type ServiceResponse struct {
 	ID                  uint                     `json:"id"`
 	CategoryID          uint                     `json:"categoryId"`
@@ -45,6 +75,8 @@ type ServiceResponse struct {
 	Description         string                   `json:"description"`
 	ImageURL            string                   `json:"imageUrl"`
 	BasePrice           float64                  `json:"basePrice"`
+	OriginalPrice       float64                  `json:"originalPrice,omitempty"`
+	DiscountPercentage  int                      `json:"discountPercentage"`
 	PricingModel        string                   `json:"pricingModel"`
 	BaseDurationMinutes int                      `json:"baseDurationMinutes"`
 	IsActive            bool                     `json:"isActive"`
@@ -53,14 +85,52 @@ type ServiceResponse struct {
 	Options             []ServiceOptionResponse  `json:"options,omitempty"`
 }
 
+// ServiceListResponse - Service in list view
 type ServiceListResponse struct {
-	ID         uint      `json:"id"`
-	CategoryID uint      `json:"categoryId"`
-	Name       string    `json:"name"`
-	ImageURL   string    `json:"imageUrl"`
-	BasePrice  float64   `json:"basePrice"`
-	IsActive   bool      `json:"isActive"`
-	CreatedAt  time.Time `json:"createdAt"`
+	ID                 uint      `json:"id"`
+	CategoryID         uint      `json:"categoryId"`
+	TabID              uint      `json:"tabId"`
+	Name               string    `json:"name"`
+	ImageURL           string    `json:"imageUrl"`
+	BasePrice          float64   `json:"basePrice"`
+	OriginalPrice      float64   `json:"originalPrice,omitempty"`
+	DiscountPercentage int       `json:"discountPercentage"`
+	DurationMinutes    int       `json:"durationMinutes"`
+	IsActive           bool      `json:"isActive"`
+	IsFeatured         bool      `json:"isFeatured"`
+	CreatedAt          time.Time `json:"createdAt"`
+}
+
+// ServiceDetailResponse - Detailed service view
+type ServiceDetailResponse struct {
+	ID                  uint                    `json:"id"`
+	CategoryID          uint                    `json:"categoryId"`
+	TabID               uint                    `json:"tabId"`
+	Name                string                  `json:"name"`
+	Description         string                  `json:"description"`
+	ImageURL            string                  `json:"imageUrl"`
+	BasePrice           float64                 `json:"basePrice"`
+	OriginalPrice       float64                 `json:"originalPrice,omitempty"`
+	DiscountPercentage  int                     `json:"discountPercentage"`
+	PricingModel        string                  `json:"pricingModel"`
+	BaseDurationMinutes int                     `json:"baseDurationMinutes"`
+	MaxQuantity         int                     `json:"maxQuantity"`
+	IsActive            bool                    `json:"isActive"`
+	IsFeatured          bool                    `json:"isFeatured"`
+	CreatedAt           time.Time               `json:"createdAt"`
+	Category            *CategoryBasicResponse  `json:"category,omitempty"`
+	Tab                 *TabBasicResponse       `json:"tab,omitempty"`
+	Options             []ServiceOptionResponse `json:"options,omitempty"`
+}
+
+type CategoryBasicResponse struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+type TabBasicResponse struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
 }
 
 type ServiceOptionResponse struct {
@@ -80,6 +150,14 @@ type ServiceOptionChoiceResponse struct {
 	DurationModifierMinutes int     `json:"durationModifierMinutes"`
 }
 
+// Helper function to calculate discount percentage
+func calculateDiscountPercentage(originalPrice, basePrice float64) int {
+	if originalPrice > 0 && basePrice < originalPrice {
+		return int(((originalPrice - basePrice) / originalPrice) * 100)
+	}
+	return 0
+}
+
 func ToServiceResponse(svc *models.Service) *ServiceResponse {
 	resp := &ServiceResponse{
 		ID:                  svc.ID,
@@ -88,6 +166,8 @@ func ToServiceResponse(svc *models.Service) *ServiceResponse {
 		Description:         svc.Description,
 		ImageURL:            svc.ImageURL,
 		BasePrice:           svc.BasePrice,
+		OriginalPrice:       svc.OriginalPrice,
+		DiscountPercentage:  calculateDiscountPercentage(svc.OriginalPrice, svc.BasePrice),
 		PricingModel:        svc.PricingModel,
 		BaseDurationMinutes: svc.BaseDurationMinutes,
 		IsActive:            svc.IsActive,
@@ -128,13 +208,18 @@ func ToServiceResponse(svc *models.Service) *ServiceResponse {
 
 func ToServiceListResponse(svc *models.Service) *ServiceListResponse {
 	return &ServiceListResponse{
-		ID:         svc.ID,
-		CategoryID: svc.CategoryID,
-		Name:       svc.Name,
-		ImageURL:   svc.ImageURL,
-		BasePrice:  svc.BasePrice,
-		IsActive:   svc.IsActive,
-		CreatedAt:  svc.CreatedAt,
+		ID:                 svc.ID,
+		CategoryID:         svc.CategoryID,
+		TabID:              svc.TabID,
+		Name:               svc.Name,
+		ImageURL:           svc.ImageURL,
+		BasePrice:          svc.BasePrice,
+		OriginalPrice:      svc.OriginalPrice,
+		DiscountPercentage: calculateDiscountPercentage(svc.OriginalPrice, svc.BasePrice),
+		DurationMinutes:    svc.BaseDurationMinutes,
+		IsActive:           svc.IsActive,
+		IsFeatured:         svc.IsFeatured,
+		CreatedAt:          svc.CreatedAt,
 	}
 }
 
@@ -146,27 +231,42 @@ func ToServiceListResponses(svcs []*models.Service) []*ServiceListResponse {
 	return result
 }
 
+// AddOnResponse
+type AddOnResponse struct {
+	ID              uint    `json:"id"`
+	CategoryID      uint    `json:"categoryId"`
+	Title           string  `json:"title"`
+	Description     string  `json:"description"`
+	ImageURL        string  `json:"imageUrl"`
+	Price           float64 `json:"price"`
+	OriginalPrice   float64 `json:"originalPrice,omitempty"`
+	DurationMinutes int     `json:"durationMinutes"`
+	IsActive        bool    `json:"isActive"`
+	SortOrder       int     `json:"sortOrder"`
+}
+
 // OrderResponse for order details
 type OrderResponse struct {
-	ID          string              `json:"id"`
-	Code        string              `json:"code"`
-	UserID      string              `json:"userId"`
-	ProviderID  *string             `json:"providerId,omitempty"`
-	Status      string              `json:"status"`
-	Address     string              `json:"address"`
-	ServiceDate time.Time           `json:"serviceDate"`
-	Frequency   string              `json:"frequency"`
-	Subtotal    float64             `json:"subtotal"`
-	Discount    float64             `json:"discount"`
-	SurgeFee    float64             `json:"surgeFee"`
-	PlatformFee float64             `json:"platformFee"`
-	Total       float64             `json:"total"`
-	CouponCode  *string             `json:"couponCode,omitempty"`
-	CreatedAt   time.Time           `json:"createdAt"`
-	AcceptedAt  *time.Time          `json:"acceptedAt,omitempty"`
-	CompletedAt *time.Time          `json:"completedAt,omitempty"`
-	Items       []OrderItemResponse `json:"items,omitempty"`
-	Provider    *ProviderResponse   `json:"provider,omitempty"`
+	ID          string               `json:"id"`
+	Code        string               `json:"code"`
+	UserID      string               `json:"userId"`
+	ProviderID  *string              `json:"providerId,omitempty"`
+	Status      string               `json:"status"`
+	Address     string               `json:"address"`
+	ServiceDate time.Time            `json:"serviceDate"`
+	Frequency   string               `json:"frequency"`
+	Subtotal    float64              `json:"subtotal"`
+	Discount    float64              `json:"discount"`
+	SurgeFee    float64              `json:"surgeFee"`
+	PlatformFee float64              `json:"platformFee"`
+	Total       float64              `json:"total"`
+	CouponCode  *string              `json:"couponCode,omitempty"`
+	CreatedAt   time.Time            `json:"createdAt"`
+	AcceptedAt  *time.Time           `json:"acceptedAt,omitempty"`
+	CompletedAt *time.Time           `json:"completedAt,omitempty"`
+	Items       []OrderItemResponse  `json:"items,omitempty"`
+	AddOns      []OrderAddOnResponse `json:"addOns,omitempty"`
+	Provider    *ProviderResponse    `json:"provider,omitempty"`
 }
 
 type OrderListResponse struct {
@@ -189,6 +289,13 @@ type OrderItemResponse struct {
 	SelectedOptions map[string]interface{} `json:"selectedOptions"`
 }
 
+type OrderAddOnResponse struct {
+	ID      uint    `json:"id"`
+	AddOnID uint    `json:"addOnId"`
+	Title   string  `json:"title"`
+	Price   float64 `json:"price"`
+}
+
 type ProviderResponse struct {
 	ID            string  `json:"id"`
 	Name          string  `json:"name"`
@@ -197,6 +304,40 @@ type ProviderResponse struct {
 	CompletedJobs int     `json:"completedJobs"`
 }
 
+// ==================== CONVERTERS ====================
+
+func ToCategoryWithTabsResponse(cat *models.ServiceCategory) *CategoryWithTabsResponse {
+	resp := &CategoryWithTabsResponse{
+		ID:          cat.ID,
+		Name:        cat.Name,
+		Description: cat.Description,
+		IconURL:     cat.IconURL,
+		BannerImage: cat.BannerImage,
+		Highlights:  cat.Highlights,
+		IsActive:    cat.IsActive,
+		SortOrder:   cat.SortOrder,
+		CreatedAt:   cat.CreatedAt,
+		Tabs:        make([]ServiceTabResponse, 0),
+	}
+
+	for _, tab := range cat.Tabs {
+		resp.Tabs = append(resp.Tabs, ServiceTabResponse{
+			ID:          tab.ID,
+			CategoryID:  tab.CategoryID,
+			Name:        tab.Name,
+			Description: tab.Description,
+			IconURL:     tab.IconURL,
+			BannerTitle: tab.BannerTitle,
+			BannerDesc:  tab.BannerDesc,
+			BannerImage: tab.BannerImage,
+			IsActive:    tab.IsActive,
+			SortOrder:   tab.SortOrder,
+			CreatedAt:   tab.CreatedAt,
+		})
+	}
+
+	return resp
+}
 func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
 	resp := &OrderResponse{
 		ID:          order.ID,
@@ -233,10 +374,23 @@ func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
 		}
 	}
 
-	if order.Provider != nil && order.Provider.User != nil {
+	if len(order.AddOns) > 0 {
+		resp.AddOns = make([]OrderAddOnResponse, len(order.AddOns))
+		for i, addon := range order.AddOns {
+			resp.AddOns[i] = OrderAddOnResponse{
+				ID:      addon.ID,
+				AddOnID: addon.AddOnID,
+				Title:   addon.Title,
+				Price:   addon.Price,
+			}
+		}
+	}
+
+	// Fixed provider response - use the provided user data
+	if order.Provider != nil {
 		resp.Provider = &ProviderResponse{
 			ID:            order.Provider.ID,
-			Name:          order.Provider.User.Name,
+			Name:          "Service Provider", // Placeholder name
 			Photo:         order.Provider.Photo,
 			Rating:        order.Provider.Rating,
 			CompletedJobs: order.Provider.CompletedJobs,
@@ -245,6 +399,67 @@ func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
 
 	return resp
 }
+
+// func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
+//     resp := &OrderResponse{
+//         ID:          order.ID,
+//         Code:        order.Code,
+//         UserID:      order.UserID,
+//         ProviderID:  order.ProviderID,
+//         Status:      order.Status,
+//         Address:     order.Address,
+//         ServiceDate: order.ServiceDate,
+//         Frequency:   order.Frequency,
+//         Subtotal:    order.Subtotal,
+//         Discount:    order.Discount,
+//         SurgeFee:    order.SurgeFee,
+//         PlatformFee: order.PlatformFee,
+//         Total:       order.Total,
+//         CouponCode:  order.CouponCode,
+//         CreatedAt:   order.CreatedAt,
+//         AcceptedAt:  order.AcceptedAt,
+//         CompletedAt: order.CompletedAt,
+//     }
+
+//     if len(order.Items) > 0 {
+//         resp.Items = make([]OrderItemResponse, len(order.Items))
+//         for i, item := range order.Items {
+//             resp.Items[i] = OrderItemResponse{
+//                 ID:              item.ID,
+//                 ServiceID:       item.ServiceID,
+//                 ServiceName:     item.ServiceName,
+//                 BasePrice:       item.BasePrice,
+//                 CalculatedPrice: item.CalculatedPrice,
+//                 DurationMinutes: item.DurationMinutes,
+//                 SelectedOptions: item.SelectedOptions,
+//             }
+//         }
+//     }
+
+//     if len(order.AddOns) > 0 {
+//         resp.AddOns = make([]OrderAddOnResponse, len(order.AddOns))
+//         for i, addon := range order.AddOns {
+//             resp.AddOns[i] = OrderAddOnResponse{
+//                 ID:      addon.ID,
+//                 AddOnID: addon.AddOnID,
+//                 Title:   addon.Title,
+//                 Price:   addon.Price,
+//             }
+//         }
+//     }
+
+//     if order.Provider != nil && order.Provider.User != nil {
+//         resp.Provider = &ProviderResponse{
+//             ID:            order.Provider.ID,
+//             Name:          order.Provider.User.Name,
+//             Photo:         order.Provider.Photo,
+//             Rating:        order.Provider.Rating,
+//             CompletedJobs: order.Provider.CompletedJobs,
+//         }
+//     }
+
+//     return resp
+// }
 
 func ToOrderListResponse(order *models.ServiceOrder) *OrderListResponse {
 	return &OrderListResponse{
@@ -264,4 +479,80 @@ func ToOrderListResponses(orders []*models.ServiceOrder) []*OrderListResponse {
 		result[i] = ToOrderListResponse(order)
 	}
 	return result
+}
+
+func ToServiceDetailResponse(svc *models.Service) *ServiceDetailResponse {
+	resp := &ServiceDetailResponse{
+		ID:                  svc.ID,
+		CategoryID:          svc.CategoryID,
+		TabID:               svc.TabID,
+		Name:                svc.Name,
+		Description:         svc.Description,
+		ImageURL:            svc.ImageURL,
+		BasePrice:           svc.BasePrice,
+		OriginalPrice:       svc.OriginalPrice,
+		DiscountPercentage:  calculateDiscountPercentage(svc.OriginalPrice, svc.BasePrice),
+		PricingModel:        svc.PricingModel,
+		BaseDurationMinutes: svc.BaseDurationMinutes,
+		MaxQuantity:         svc.MaxQuantity,
+		IsActive:            svc.IsActive,
+		IsFeatured:          svc.IsFeatured,
+		CreatedAt:           svc.CreatedAt,
+	}
+
+	if svc.Category != nil {
+		resp.Category = &CategoryBasicResponse{
+			ID:   svc.Category.ID,
+			Name: svc.Category.Name,
+		}
+	}
+
+	if svc.Tab != nil {
+		resp.Tab = &TabBasicResponse{
+			ID:   svc.Tab.ID,
+			Name: svc.Tab.Name,
+		}
+	}
+
+	if len(svc.Options) > 0 {
+		resp.Options = make([]ServiceOptionResponse, len(svc.Options))
+		for i, opt := range svc.Options {
+			resp.Options[i] = ServiceOptionResponse{
+				ID:         opt.ID,
+				ServiceID:  opt.ServiceID,
+				Name:       opt.Name,
+				Type:       opt.Type,
+				IsRequired: opt.IsRequired,
+			}
+			if len(opt.Choices) > 0 {
+				resp.Options[i].Choices = make([]ServiceOptionChoiceResponse, len(opt.Choices))
+				for j, choice := range opt.Choices {
+					resp.Options[i].Choices[j] = ServiceOptionChoiceResponse{
+						ID:                      choice.ID,
+						OptionID:                choice.OptionID,
+						Label:                   choice.Label,
+						PriceModifier:           choice.PriceModifier,
+						DurationModifierMinutes: choice.DurationModifierMinutes,
+					}
+				}
+			}
+		}
+	}
+
+	return resp
+}
+
+func ToAddOnResponse(addon *models.AddOnService) *AddOnResponse {
+	return &AddOnResponse{
+		ID:              addon.ID,
+		CategoryID:      addon.CategoryID,
+		Title:           addon.Title,
+		Description:     addon.Description,
+		ImageURL:        addon.ImageURL,
+		Price:           addon.Price,
+		OriginalPrice:   addon.OriginalPrice,
+		DurationMinutes: addon.DurationMinutes,
+		IsActive:        addon.IsActive,
+		SortOrder:       addon.SortOrder,
+	}
 }

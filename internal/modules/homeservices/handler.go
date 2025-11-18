@@ -36,6 +36,31 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	response.Success(c, categories, "Categories retrieved successfully")
 }
 
+// GetCategoryWithTabs godoc
+// @Summary Get category with tabs
+// @Description Get detailed category information with all tabs
+// @Tags home-services
+// @Produce json
+// @Param id path int true "Category ID"
+// @Success 200 {object} response.Response{data=dto.CategoryWithTabsResponse}
+// @Failure 404 {object} response.Response
+// @Router /services/categories/{id} [get]
+func (h *Handler) GetCategoryWithTabs(c *gin.Context) {
+	var id uint
+	if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
+		c.Error(response.BadRequest("Invalid category ID"))
+		return
+	}
+
+	category, err := h.service.GetCategoryWithTabs(c.Request.Context(), id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, category, "Category retrieved successfully")
+}
+
 // ListServices godoc
 // @Summary List services
 // @Description Get paginated list of services with filters
@@ -57,6 +82,7 @@ func (h *Handler) ListServices(c *gin.Context) {
 		return
 	}
 
+	query.SetDefaults()
 	services, pagination, err := h.service.ListServices(c.Request.Context(), query)
 	if err != nil {
 		c.Error(err)
@@ -72,19 +98,17 @@ func (h *Handler) ListServices(c *gin.Context) {
 // @Tags home-services
 // @Produce json
 // @Param id path int true "Service ID"
-// @Success 200 {object} response.Response{data=dto.ServiceResponse}
+// @Success 200 {object} response.Response{data=dto.ServiceDetailResponse}
 // @Failure 404 {object} response.Response
 // @Router /services/{id} [get]
 func (h *Handler) GetServiceDetails(c *gin.Context) {
-	id := c.Param("id")
-
-	var serviceID uint
-	if _, err := fmt.Sscan(id, &serviceID); err != nil {
+	var id uint
+	if _, err := fmt.Sscan(c.Param("id"), &id); err != nil {
 		c.Error(response.BadRequest("Invalid service ID"))
 		return
 	}
 
-	service, err := h.service.GetServiceDetails(c.Request.Context(), serviceID)
+	service, err := h.service.GetServiceDetails(c.Request.Context(), id)
 	if err != nil {
 		c.Error(err)
 		return
@@ -92,6 +116,32 @@ func (h *Handler) GetServiceDetails(c *gin.Context) {
 
 	response.Success(c, service, "Service details retrieved successfully")
 }
+
+// ListAddOns godoc
+// @Summary List add-ons
+// @Description Get all available add-ons for a category
+// @Tags home-services
+// @Produce json
+// @Param categoryId query int true "Category ID"
+// @Success 200 {object} response.Response{data=[]dto.AddOnResponse}
+// @Router /services/addons [get]
+func (h *Handler) ListAddOns(c *gin.Context) {
+	var categoryID uint
+	if _, err := fmt.Sscan(c.Query("categoryId"), &categoryID); err != nil || categoryID == 0 {
+		c.Error(response.BadRequest("Valid category ID is required"))
+		return
+	}
+
+	addOns, err := h.service.ListAddOns(c.Request.Context(), categoryID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, addOns, "Add-ons retrieved successfully")
+}
+
+// ==================== CUSTOMER ENDPOINTS ====================
 
 // CreateOrder godoc
 // @Summary Create a service order
@@ -110,6 +160,11 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	var req dto.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		c.Error(err)
 		return
 	}
 
@@ -143,6 +198,7 @@ func (h *Handler) GetMyOrders(c *gin.Context) {
 		return
 	}
 
+	query.SetDefaults()
 	userID, _ := c.Get("userID")
 
 	orders, pagination, err := h.service.GetMyOrders(c.Request.Context(), userID.(string), query)
@@ -204,7 +260,7 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 	response.Success(c, nil, "Order cancelled successfully")
 }
 
-// --- Provider Endpoints ---
+// ==================== PROVIDER ENDPOINTS ====================
 
 // GetProviderOrders godoc
 // @Summary Get provider orders
@@ -225,6 +281,7 @@ func (h *Handler) GetProviderOrders(c *gin.Context) {
 		return
 	}
 
+	query.SetDefaults()
 	// Get provider ID from context (set by auth middleware)
 	providerID, exists := c.Get("providerID")
 	if !exists {
@@ -336,7 +393,59 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 	response.Success(c, nil, "Order completed successfully")
 }
 
-// --- Admin Endpoints ---
+// ==================== ADMIN ENDPOINTS ====================
+
+// CreateCategory godoc
+// @Summary Create a category
+// @Description Create a new service category (admin only)
+// @Tags home-services-admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateCategoryRequest true "Category details"
+// @Success 201 {object} response.Response{data=dto.CategoryWithTabsResponse}
+// @Router /services/admin/categories [post]
+func (h *Handler) CreateCategory(c *gin.Context) {
+	var req dto.CreateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(response.BadRequest("Invalid request body"))
+		return
+	}
+
+	category, err := h.service.CreateCategory(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, category, "Category created successfully")
+}
+
+// CreateTab godoc
+// @Summary Create a tab
+// @Description Create a new service tab/subcategory (admin only)
+// @Tags home-services-admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateTabRequest true "Tab details"
+// @Success 201 {object} response.Response{data=dto.ServiceTabResponse}
+// @Router /services/admin/tabs [post]
+func (h *Handler) CreateTab(c *gin.Context) {
+	var req dto.CreateTabRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(response.BadRequest("Invalid request body"))
+		return
+	}
+
+	tab, err := h.service.CreateTab(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, tab, "Tab created successfully")
+}
 
 // CreateService godoc
 // @Summary Create a service
@@ -365,6 +474,32 @@ func (h *Handler) CreateService(c *gin.Context) {
 	}
 
 	response.Success(c, service, "Service created successfully")
+}
+
+// CreateAddOn godoc
+// @Summary Create an add-on
+// @Description Create a new service add-on (admin only)
+// @Tags home-services-admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateAddOnRequest true "Add-on details"
+// @Success 201 {object} response.Response{data=dto.AddOnResponse}
+// @Router /services/admin/addons [post]
+func (h *Handler) CreateAddOn(c *gin.Context) {
+	var req dto.CreateAddOnRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(response.BadRequest("Invalid request body"))
+		return
+	}
+
+	addOn, err := h.service.CreateAddOn(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, addOn, "Add-on created successfully")
 }
 
 // UpdateService godoc

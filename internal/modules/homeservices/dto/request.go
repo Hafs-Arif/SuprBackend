@@ -8,6 +8,7 @@ import (
 // CreateOrderRequest represents a customer's service booking request
 type CreateOrderRequest struct {
 	Items       []CreateOrderItemRequest `json:"items" binding:"required,min=1,dive"`
+	AddOnIDs    []uint                   `json:"addOnIds" binding:"omitempty"`
 	Address     string                   `json:"address" binding:"required,min=5,max=500"`
 	Latitude    float64                  `json:"latitude" binding:"required,latitude"`
 	Longitude   float64                  `json:"longitude" binding:"required,longitude"`
@@ -49,15 +50,17 @@ type UpdateOrderStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=accepted rejected in_progress completed"`
 }
 
-// ListServicesQuery for browsing services
+// ListServicesQuery - Updated with tab filtering
 type ListServicesQuery struct {
 	Page       int      `form:"page" binding:"omitempty,min=1"`
 	Limit      int      `form:"limit" binding:"omitempty,min=1,max=100"`
 	CategoryID *uint    `form:"categoryId" binding:"omitempty,min=1"`
+	TabID      *uint    `form:"tabId" binding:"omitempty,min=1"`
 	Search     string   `form:"search" binding:"omitempty,max=100"`
 	MinPrice   *float64 `form:"minPrice" binding:"omitempty,gte=0"`
 	MaxPrice   *float64 `form:"maxPrice" binding:"omitempty,gte=0"`
 	IsActive   *bool    `form:"isActive"`
+	IsFeatured *bool    `form:"isFeatured"`
 }
 
 func (q *ListServicesQuery) SetDefaults() {
@@ -93,15 +96,52 @@ func (q *ListOrdersQuery) GetOffset() int {
 	return (q.Page - 1) * q.Limit
 }
 
-// Admin requests
+// Admin Requests
+type CreateCategoryRequest struct {
+	Name        string   `json:"name" binding:"required,min=2,max=150"`
+	Description string   `json:"description" binding:"required,max=1000"`
+	IconURL     string   `json:"iconUrl" binding:"omitempty,url"`
+	BannerImage string   `json:"bannerImage" binding:"omitempty,url"`
+	Highlights  []string `json:"highlights" binding:"omitempty"`
+	IsActive    bool     `json:"isActive"`
+	SortOrder   int      `json:"sortOrder" binding:"omitempty"`
+}
+
+type CreateTabRequest struct {
+	CategoryID  uint   `json:"categoryId" binding:"required,min=1"`
+	Name        string `json:"name" binding:"required,min=2,max=150"`
+	Description string `json:"description" binding:"omitempty,max=500"`
+	IconURL     string `json:"iconUrl" binding:"omitempty,url"`
+	BannerTitle string `json:"bannerTitle" binding:"omitempty,max=150"`
+	BannerDesc  string `json:"bannerDescription" binding:"omitempty,max=500"`
+	BannerImage string `json:"bannerImage" binding:"omitempty,url"`
+	IsActive    bool   `json:"isActive"`
+	SortOrder   int    `json:"sortOrder" binding:"omitempty"`
+}
 type CreateServiceRequest struct {
 	CategoryID          uint    `json:"categoryId" binding:"required,min=1"`
+	TabID               uint    `json:"tabId" binding:"required,min=1"`
 	Name                string  `json:"name" binding:"required,min=3,max=150"`
 	Description         string  `json:"description" binding:"required,max=2000"`
 	ImageURL            string  `json:"imageUrl" binding:"omitempty,url"`
 	BasePrice           float64 `json:"basePrice" binding:"required,gt=0"`
+	OriginalPrice       float64 `json:"originalPrice" binding:"omitempty,gt=0"`
 	PricingModel        string  `json:"pricingModel" binding:"required,oneof=fixed hourly per_unit"`
 	BaseDurationMinutes int     `json:"baseDurationMinutes" binding:"required,min=1"`
+	MaxQuantity         int     `json:"maxQuantity" binding:"omitempty,min=1"`
+	IsFeatured          bool    `json:"isFeatured"`
+}
+
+type CreateAddOnRequest struct {
+	CategoryID      uint    `json:"categoryId" binding:"required,min=1"`
+	Title           string  `json:"title" binding:"required,min=2,max=150"`
+	Description     string  `json:"description" binding:"omitempty,max=500"`
+	ImageURL        string  `json:"imageUrl" binding:"omitempty,url"`
+	Price           float64 `json:"price" binding:"required,gt=0"`
+	OriginalPrice   float64 `json:"originalPrice" binding:"omitempty,gt=0"`
+	DurationMinutes int     `json:"durationMinutes" binding:"omitempty,min=0"`
+	IsActive        bool    `json:"isActive"`
+	SortOrder       int     `json:"sortOrder" binding:"omitempty"`
 }
 
 type UpdateServiceRequest struct {

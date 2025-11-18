@@ -10,8 +10,10 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 	{
 		// --- Public Routes ---
 		services.GET("/categories", handler.ListCategories)
+		services.GET("/categories/:id", handler.GetCategoryWithTabs)
 		services.GET("", handler.ListServices)
 		services.GET("/:id", handler.GetServiceDetails)
+		services.GET("/addons", handler.ListAddOns)
 
 		// --- Customer Protected Routes ---
 		customer := services.Group("/orders")
@@ -41,10 +43,12 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 		admin.Use(authMiddleware)
 		admin.Use(middleware.RequireRole("admin"))
 		{
+			admin.POST("/categories", handler.CreateCategory)
+			admin.POST("/tabs", handler.CreateTab)
+			admin.POST("/addons", handler.CreateAddOn)
 			admin.POST("/services", handler.CreateService)
 			admin.PUT("/services/:id", handler.UpdateService)
 			// Add more admin routes here:
-			// - POST /categories
 			// - POST /services/:id/options
 			// - POST /options/:id/choices
 			// - GET /providers

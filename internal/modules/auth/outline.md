@@ -60,9 +60,3 @@ internal/modules/auth/
 - Custom JWT utils
 - Bcrypt password hashing
 - Your shared `response`, `logger`, `config` packages
-
-### In One Sentence
-
-> The auth module provides secure, dual-mode (phone vs email) authentication with automatic wallet/rider-profile provisioning, JWT token management, Redis-backed caching & blacklisting — forming the identity foundation for the entire ride-hailing platform.
-
-Ready for the next module whenever you are!

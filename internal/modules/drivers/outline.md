@@ -55,26 +55,3 @@ internal/modules/drivers/
 | `UpdateLocation`        | Yes                  | Yes                     | Redis 30s      | Critical for real-time tracking |
 | `GetWallet`             | Yes                  | Yes                     | Redis 1 min    | Good |
 | `GetDashboard`          | Yes                  | Warning (mock data)     | None           | **TODO**: implement real stats from rides table |
-
-**All service functions are 100% correctly wired and used by handlers** – no missing or orphaned methods.
-
-### What’s Already Production-Ready
-
-- Full driver onboarding flow
-- Real-time online/offline with Redis heartbeat
-- Live location with PostGIS + Redis fallback
-- Nearby driver search (the core of ride matching!)
-- Caching everywhere it matters
-- Proper validation + uniqueness checks
-- Clean separation of concerns
-
-### Minor Improvements / Missing Pieces
-
-| Area                     | Status     | Recommendation |
-|--------------------------|------------|----------------|
-| Dashboard stats          | Mock       | Query `rides` table for today/week earnings & trips |
-| Driver verification      | Auto-true  | Add document upload + admin approval flow later |
-| Acceptance/Cancellation rate | Static | Update on ride accept/reject/cancel events |
-| Location parsing in DTO  | Placeholder| Parse `POINT(lng lat)` string properly in `ToDriverProfileResponse` |
-| Tests                    | Missing    | Add unit + integration tests (especially location & status) |
-
