@@ -1,6 +1,6 @@
 -- Enable extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "postgis";
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- Ensure wallet enum types exist (they should from your existing system)
 -- If they don't exist, create them
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS service_tabs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_services_category ON "services"("category_id");
+-- CREATE INDEX idx_services_category ON "services"("category_id");
 CREATE INDEX idx_services_active ON "services"("is_active");
 
 -- Services (Individual services)
