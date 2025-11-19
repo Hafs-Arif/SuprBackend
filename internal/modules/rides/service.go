@@ -173,7 +173,6 @@ func (s *service) CreateRide(ctx context.Context, riderID string, req dto.Create
 	return dto.ToRideResponse(ride), nil
 }
 
-// FIX 2: Add OnlyAvailable filter
 func (s *service) FindDriverForRide(ctx context.Context, rideID string) error {
 	ride, err := s.repo.FindRideByID(ctx, rideID)
 	if err != nil {
@@ -194,11 +193,15 @@ func (s *service) FindDriverForRide(ctx context.Context, rideID string) error {
 			RadiusKm:      radius,
 			VehicleTypeID: ride.VehicleTypeID,
 			Limit:         15,
-			// Note: OnlyAvailable should be added to trackingdto.FindNearbyDriversRequest struct
+			OnlyAvailable: true, // FIXED: Only search for available drivers
 		}
 
 		nearbyDrivers, err = s.trackingService.FindNearbyDrivers(ctx, nearbyReq)
 		if err == nil && nearbyDrivers.Count > 0 {
+			logger.Info("found nearby drivers at radius",
+				"radius", radius,
+				"count", nearbyDrivers.Count,
+				"rideID", rideID)
 			break
 		}
 		time.Sleep(1 * time.Second)
@@ -239,6 +242,73 @@ func (s *service) FindDriverForRide(ctx context.Context, rideID string) error {
 		return err
 	}
 }
+
+// FIX 2: Add OnlyAvailable filter
+// func (s *service) FindDriverForRide(ctx context.Context, rideID string) error {
+// 	ride, err := s.repo.FindRideByID(ctx, rideID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if ride.Status != "searching" {
+// 		return nil
+// 	}
+
+// 	radii := []float64{3.0, 5.0, 8.0}
+// 	var nearbyDrivers *trackingdto.NearbyDriversResponse
+
+// 	for _, radius := range radii {
+// 		nearbyReq := trackingdto.FindNearbyDriversRequest{
+// 			Latitude:      ride.PickupLat,
+// 			Longitude:     ride.PickupLon,
+// 			RadiusKm:      radius,
+// 			VehicleTypeID: ride.VehicleTypeID,
+// 			Limit:         15,
+// 			// Note: OnlyAvailable should be added to trackingdto.FindNearbyDriversRequest struct
+// 		}
+
+// 		nearbyDrivers, err = s.trackingService.FindNearbyDrivers(ctx, nearbyReq)
+// 		if err == nil && nearbyDrivers.Count > 0 {
+// 			break
+// 		}
+// 		time.Sleep(1 * time.Second)
+// 	}
+
+// 	if err != nil || nearbyDrivers == nil || nearbyDrivers.Count == 0 {
+// 		return errors.New("no drivers available in the area")
+// 	}
+
+// 	logger.Info("found nearby drivers",
+// 		"rideID", rideID,
+// 		"driverCount", nearbyDrivers.Count,
+// 	)
+
+// 	maxConcurrentRequests := 3
+// 	timeout := 30 * time.Second
+
+// 	resultChan := make(chan string, 1)
+// 	errorChan := make(chan error, 1)
+// 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+// 	defer cancel()
+
+// 	driversToContact := min(maxConcurrentRequests, nearbyDrivers.Count)
+// 	for i := 0; i < driversToContact; i++ {
+// 		driver := nearbyDrivers.Drivers[i]
+// 		go s.sendRideRequestToDriver(ctxWithTimeout, ride, driver, resultChan, errorChan)
+// 	}
+
+// 	select {
+// 	case acceptedDriverID := <-resultChan:
+// 		cancel()
+// 		return s.assignDriverToRide(ctx, rideID, acceptedDriverID)
+
+// 	case <-ctxWithTimeout.Done():
+// 		return errors.New("no driver accepted the ride request")
+
+// 	case err := <-errorChan:
+// 		return err
+// 	}
+// }
 
 // FIX 3: Handle context cancellation properly
 func (s *service) sendRideRequestToDriver(
@@ -330,7 +400,6 @@ func (s *service) sendRideRequestToDriver(
 	}
 }
 
-// FIX 4: Atomic assignment with cancellation of other requests
 func (s *service) assignDriverToRide(ctx context.Context, rideID, driverID string) error {
 	// Atomic update: only one driver can change status from "searching" to "accepted"
 	err := s.repo.UpdateRideStatusAndDriver(ctx, rideID, "accepted", "searching", driverID)
@@ -344,6 +413,10 @@ func (s *service) assignDriverToRide(ctx context.Context, rideID, driverID strin
 	// Update driver status
 	s.driversRepo.UpdateDriverStatus(ctx, driverID, "busy")
 
+	// Mark driver as busy in cache
+	busyKey := fmt.Sprintf("driver:busy:%s", driverID)
+	cache.Set(ctx, busyKey, "true", 30*time.Minute)
+
 	// Update cache
 	ride, _ := s.repo.FindRideByID(ctx, rideID)
 	cacheKey := fmt.Sprintf("ride:active:%s", rideID)
@@ -353,26 +426,38 @@ func (s *service) assignDriverToRide(ctx context.Context, rideID, driverID strin
 	driver, err := s.driversRepo.FindDriverByID(ctx, driverID)
 	if err != nil {
 		logger.Error("failed to fetch driver details", "error", err, "driverID", driverID)
-	} else {
-		rideDetails := map[string]interface{}{
-			"rideId":   rideID,
-			"driverId": driver.ID,
-			"driver": map[string]interface{}{
-				"name":   driver.User.Name,
-				"phone":  driver.User.Phone,
-				"rating": driver.Rating,
-			},
-			"vehicle": map[string]interface{}{
-				"type":  driver.Vehicle.VehicleType.Name,
-				"model": driver.Vehicle.Model,
-				"color": driver.Vehicle.Color,
-				"plate": driver.Vehicle.LicensePlate,
-			},
-			"message": "Driver is on the way!",
-			"eta":     10,
-		}
+		// Continue without sending detailed notification
+		return nil
+	}
 
-		s.wsHelper.SendRideAccepted(ride.RiderID, rideDetails)
+	// Safely check if vehicle exists before accessing
+	if driver.Vehicle == nil {
+		logger.Warn("driver has no vehicle assigned", "driverID", driverID)
+		return nil
+	}
+
+	rideDetails := map[string]interface{}{
+		"rideId":   rideID,
+		"driverId": driver.ID,
+		"driver": map[string]interface{}{
+			"name":   driver.User.Name,
+			"phone":  driver.User.Phone,
+			"rating": driver.Rating,
+		},
+		"vehicle": map[string]interface{}{
+			"type":  driver.Vehicle.VehicleType.Name,
+			"model": driver.Vehicle.Model,
+			"color": driver.Vehicle.Color,
+			"plate": driver.Vehicle.LicensePlate,
+		},
+		"message": "Driver is on the way!",
+		"eta":     10,
+	}
+
+	if err := s.wsHelper.SendRideAccepted(ride.RiderID, rideDetails); err != nil {
+		logger.Error("failed to send ride acceptance notification",
+			"error", err,
+			"riderID", ride.RiderID)
 	}
 
 	logger.Info("ride assigned to driver",
@@ -382,6 +467,59 @@ func (s *service) assignDriverToRide(ctx context.Context, rideID, driverID strin
 
 	return nil
 }
+
+// FIX 4: Atomic assignment with cancellation of other requests
+// func (s *service) assignDriverToRide(ctx context.Context, rideID, driverID string) error {
+// 	// Atomic update: only one driver can change status from "searching" to "accepted"
+// 	err := s.repo.UpdateRideStatusAndDriver(ctx, rideID, "accepted", "searching", driverID)
+// 	if err != nil {
+// 		return response.BadRequest("Ride already accepted by another driver")
+// 	}
+
+// 	// Cancel all other pending requests for this ride
+// 	go s.repo.CancelPendingRequestsExcept(context.Background(), rideID, driverID)
+
+// 	// Update driver status
+// 	s.driversRepo.UpdateDriverStatus(ctx, driverID, "busy")
+
+// 	// Update cache
+// 	ride, _ := s.repo.FindRideByID(ctx, rideID)
+// 	cacheKey := fmt.Sprintf("ride:active:%s", rideID)
+// 	cache.SetJSON(ctx, cacheKey, ride, 30*time.Minute)
+
+// 	// Get driver details for notification
+// 	driver, err := s.driversRepo.FindDriverByID(ctx, driverID)
+// 	if err != nil {
+// 		logger.Error("failed to fetch driver details", "error", err, "driverID", driverID)
+// 	} else {
+// 		rideDetails := map[string]interface{}{
+// 			"rideId":   rideID,
+// 			"driverId": driver.ID,
+// 			"driver": map[string]interface{}{
+// 				"name":   driver.User.Name,
+// 				"phone":  driver.User.Phone,
+// 				"rating": driver.Rating,
+// 			},
+// 			"vehicle": map[string]interface{}{
+// 				"type":  driver.Vehicle.VehicleType.Name,
+// 				"model": driver.Vehicle.Model,
+// 				"color": driver.Vehicle.Color,
+// 				"plate": driver.Vehicle.LicensePlate,
+// 			},
+// 			"message": "Driver is on the way!",
+// 			"eta":     10,
+// 		}
+
+// 		s.wsHelper.SendRideAccepted(ride.RiderID, rideDetails)
+// 	}
+
+// 	logger.Info("ride assigned to driver",
+// 		"rideID", rideID,
+// 		"driverID", driverID,
+// 	)
+
+// 	return nil
+// }
 
 // FIX 5: Check expiration in AcceptRide
 func (s *service) AcceptRide(ctx context.Context, driverID, rideID string) (*dto.RideResponse, error) {
@@ -629,6 +767,13 @@ func (s *service) CompleteRide(ctx context.Context, driverID, rideID string, req
 	// Update driver status back to online
 	s.driversRepo.UpdateDriverStatus(ctx, *ride.DriverID, "online")
 
+	// Clear driver busy flag from cache
+	busyKey := fmt.Sprintf("driver:busy:%s", *ride.DriverID)
+	cache.Delete(ctx, busyKey)
+
+	// Clear ride cache
+	cache.Delete(ctx, fmt.Sprintf("ride:active:%s", rideID))
+
 	// Clear cache
 	cache.Delete(ctx, fmt.Sprintf("ride:active:%s", rideID))
 
@@ -799,6 +944,10 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 	// Update driver status if assigned
 	if ride.DriverID != nil {
 		s.driversRepo.UpdateDriverStatus(ctx, *ride.DriverID, "online")
+
+		// Clear driver busy flag from cache
+		busyKey := fmt.Sprintf("driver:busy:%s", *ride.DriverID)
+		cache.Delete(ctx, busyKey)
 
 		// Notify driver via WebSocket
 		websocketutil.SendToUser(*ride.DriverID, websocket.TypeRideCancelled, map[string]interface{}{

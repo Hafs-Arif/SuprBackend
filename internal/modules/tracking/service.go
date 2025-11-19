@@ -97,15 +97,45 @@ func (s *service) GetDriverLocation(ctx context.Context, driverID string) (*dto.
 	var cached map[string]interface{}
 
 	err := cache.GetJSON(ctx, cacheKey, &cached)
-	if err == nil {
-		return &dto.LocationResponse{
-			Latitude:  cached["latitude"].(float64),
-			Longitude: cached["longitude"].(float64),
-			Heading:   int(cached["heading"].(float64)),
-			Speed:     cached["speed"].(float64),
-			Accuracy:  cached["accuracy"].(float64),
-			Timestamp: time.Unix(int64(cached["timestamp"].(float64)), 0),
-		}, nil
+	if err == nil && cached != nil {
+		// Safely extract values with type checking
+		lat, latOk := cached["latitude"].(float64)
+		lon, lonOk := cached["longitude"].(float64)
+
+		if !latOk || !lonOk {
+			// Invalid cache data, fall through to database
+			logger.Warn("invalid cache data for driver location", "driverID", driverID)
+		} else {
+			// Safe extraction with defaults for optional fields
+			heading := 0
+			if h, ok := cached["heading"].(float64); ok {
+				heading = int(h)
+			}
+
+			speed := 0.0
+			if s, ok := cached["speed"].(float64); ok {
+				speed = s
+			}
+
+			accuracy := 0.0
+			if a, ok := cached["accuracy"].(float64); ok {
+				accuracy = a
+			}
+
+			timestamp := time.Now()
+			if ts, ok := cached["timestamp"].(float64); ok {
+				timestamp = time.Unix(int64(ts), 0)
+			}
+
+			return &dto.LocationResponse{
+				Latitude:  lat,
+				Longitude: lon,
+				Heading:   heading,
+				Speed:     speed,
+				Accuracy:  accuracy,
+				Timestamp: timestamp,
+			}, nil
+		}
 	}
 
 	// Get from database
@@ -124,7 +154,6 @@ func (s *service) GetDriverLocation(ctx context.Context, driverID string) (*dto.
 	}, nil
 }
 
-// CRITICAL FIX: Implement OnlyAvailable filter
 func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDriversRequest) (*dto.NearbyDriversResponse, error) {
 	req.SetDefaults()
 
@@ -132,15 +161,17 @@ func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDrive
 		return nil, response.BadRequest(err.Error())
 	}
 
-	// Try cache first (but only if not filtering by availability)
-	cacheKey := fmt.Sprintf("nearby:drivers:%f:%f:%f:%s:%v",
-		req.Latitude, req.Longitude, req.RadiusKm, req.VehicleTypeID, req.OnlyAvailable)
-
+	// Only use cache if NOT filtering by availability (since that changes frequently)
 	var cached dto.NearbyDriversResponse
-	err := cache.GetJSON(ctx, cacheKey, &cached)
-	if err == nil {
-		logger.Debug("nearby drivers cache hit", "lat", req.Latitude, "lng", req.Longitude)
-		return &cached, nil
+	if !req.OnlyAvailable {
+		cacheKey := fmt.Sprintf("nearby:drivers:%f:%f:%f:%s",
+			req.Latitude, req.Longitude, req.RadiusKm, req.VehicleTypeID)
+
+		err := cache.GetJSON(ctx, cacheKey, &cached)
+		if err == nil {
+			logger.Debug("nearby drivers cache hit", "lat", req.Latitude, "lng", req.Longitude)
+			return &cached, nil
+		}
 	}
 
 	// Find nearby drivers from database
@@ -167,9 +198,8 @@ func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDrive
 	driverResponses := make([]dto.DriverLocationResponse, 0, len(drivers))
 
 	for _, driver := range drivers {
-		// CRITICAL: Filter by availability if requested
+		// Filter by availability if requested
 		if req.OnlyAvailable {
-			// Check if driver is truly available (not busy with another ride)
 			isAvailable, err := s.isDriverAvailable(ctx, driver.ID)
 			if err != nil || !isAvailable {
 				logger.Debug("skipping busy driver", "driverID", driver.ID)
@@ -177,10 +207,11 @@ func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDrive
 			}
 		}
 
-		// Get driver's current location from Redis
+		// Get driver's current location from Redis (with error handling)
 		driverLoc, err := s.GetDriverLocation(ctx, driver.ID)
 		if err != nil {
-			continue // Skip if location not available
+			logger.Debug("skipping driver with no location", "driverID", driver.ID)
+			continue
 		}
 
 		// Calculate distance
@@ -216,8 +247,12 @@ func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDrive
 		Count:    len(driverResponses),
 	}
 
-	// Cache for 5 seconds (short TTL for availability accuracy)
-	cache.SetJSON(ctx, cacheKey, result, 5*time.Second)
+	// Only cache if NOT filtering by availability
+	if !req.OnlyAvailable {
+		cacheKey := fmt.Sprintf("nearby:drivers:%f:%f:%f:%s",
+			req.Latitude, req.Longitude, req.RadiusKm, req.VehicleTypeID)
+		cache.SetJSON(ctx, cacheKey, result, 10*time.Second)
+	}
 
 	logger.Info("nearby drivers found",
 		"count", len(driverResponses),
@@ -227,6 +262,110 @@ func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDrive
 
 	return result, nil
 }
+
+// // CRITICAL FIX: Implement OnlyAvailable filter
+// func (s *service) FindNearbyDrivers(ctx context.Context, req dto.FindNearbyDriversRequest) (*dto.NearbyDriversResponse, error) {
+// 	req.SetDefaults()
+
+// 	if err := location.ValidateCoordinates(req.Latitude, req.Longitude); err != nil {
+// 		return nil, response.BadRequest(err.Error())
+// 	}
+
+// 	// Try cache first (but only if not filtering by availability)
+// 	cacheKey := fmt.Sprintf("nearby:drivers:%f:%f:%f:%s:%v",
+// 		req.Latitude, req.Longitude, req.RadiusKm, req.VehicleTypeID, req.OnlyAvailable)
+
+// 	var cached dto.NearbyDriversResponse
+// 	err := cache.GetJSON(ctx, cacheKey, &cached)
+// 	if err == nil {
+// 		logger.Debug("nearby drivers cache hit", "lat", req.Latitude, "lng", req.Longitude)
+// 		return &cached, nil
+// 	}
+
+// 	// Find nearby drivers from database
+// 	drivers, err := s.repo.FindNearbyDrivers(
+// 		ctx,
+// 		req.Latitude,
+// 		req.Longitude,
+// 		req.RadiusKm,
+// 		req.VehicleTypeID,
+// 		req.Limit,
+// 	)
+
+// 	if err != nil {
+// 		logger.Error("failed to find nearby drivers", "error", err)
+// 		return nil, response.InternalServerError("Failed to find drivers", err)
+// 	}
+
+// 	// Build response
+// 	searchPoint := location.Point{
+// 		Latitude:  req.Latitude,
+// 		Longitude: req.Longitude,
+// 	}
+
+// 	driverResponses := make([]dto.DriverLocationResponse, 0, len(drivers))
+
+// 	for _, driver := range drivers {
+// 		// CRITICAL: Filter by availability if requested
+// 		if req.OnlyAvailable {
+// 			// Check if driver is truly available (not busy with another ride)
+// 			isAvailable, err := s.isDriverAvailable(ctx, driver.ID)
+// 			if err != nil || !isAvailable {
+// 				logger.Debug("skipping busy driver", "driverID", driver.ID)
+// 				continue
+// 			}
+// 		}
+
+// 		// Get driver's current location from Redis
+// 		driverLoc, err := s.GetDriverLocation(ctx, driver.ID)
+// 		if err != nil {
+// 			continue // Skip if location not available
+// 		}
+
+// 		// Calculate distance
+// 		driverPoint := location.Point{
+// 			Latitude:  driverLoc.Latitude,
+// 			Longitude: driverLoc.Longitude,
+// 		}
+// 		distance := location.CalculateDistance(searchPoint, driverPoint)
+
+// 		// Calculate ETA
+// 		speed := driverLoc.Speed
+// 		if speed == 0 {
+// 			speed = 40 // Default 40 km/h
+// 		}
+// 		eta := location.CalculateETA(distance, speed)
+
+// 		driverResponses = append(driverResponses, dto.DriverLocationResponse{
+// 			DriverID: driver.ID,
+// 			Location: *driverLoc,
+// 			Distance: distance,
+// 			ETA:      eta,
+// 		})
+// 	}
+
+// 	result := &dto.NearbyDriversResponse{
+// 		SearchLocation: dto.LocationResponse{
+// 			Latitude:  req.Latitude,
+// 			Longitude: req.Longitude,
+// 			Timestamp: time.Now(),
+// 		},
+// 		RadiusKm: req.RadiusKm,
+// 		Drivers:  driverResponses,
+// 		Count:    len(driverResponses),
+// 	}
+
+// 	// Cache for 5 seconds (short TTL for availability accuracy)
+// 	cache.SetJSON(ctx, cacheKey, result, 5*time.Second)
+
+// 	logger.Info("nearby drivers found",
+// 		"count", len(driverResponses),
+// 		"radiusKm", req.RadiusKm,
+// 		"onlyAvailable", req.OnlyAvailable,
+// 	)
+
+// 	return result, nil
+// }
 
 // Helper: Check if driver is truly available (not on an active ride)
 func (s *service) isDriverAvailable(ctx context.Context, driverID string) (bool, error) {

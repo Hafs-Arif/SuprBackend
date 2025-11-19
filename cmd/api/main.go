@@ -119,6 +119,11 @@ func main() {
 
 	// Global middleware
 	router.Use(middleware.RequestContext(cfg.App.Version))
+
+	if os.Getenv("ENV") == "development" || gin.Mode() == gin.DebugMode {
+		router.Use(middleware.DevelopmentLogger())
+	}
+
 	router.Use(middleware.Logger())
 	router.Use(middleware.Recovery())
 	router.Use(middleware.CORS(cfg.Server.CORS))

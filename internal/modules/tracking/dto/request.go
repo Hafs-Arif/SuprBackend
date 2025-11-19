@@ -49,8 +49,10 @@ func (r *FindNearbyDriversRequest) SetDefaults() {
 	if r.Limit == 0 {
 		r.Limit = 20
 	}
-	// By default, only show available drivers
-	r.OnlyAvailable = true
+	// Don't override OnlyAvailable if explicitly set to false
+	// The default Go bool value is false, so we can't distinguish between
+	// "not set" and "explicitly false". Consider this acceptable behavior
+	// or use *bool if you need to distinguish
 }
 
 type GetPolylineRequest struct {

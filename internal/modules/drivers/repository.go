@@ -100,8 +100,6 @@ func (r *repository) UpdateDriverLocation(ctx context.Context, driverID string, 
 		Where("id = ?", driverID).
 		Updates(map[string]interface{}{
 			"current_location": gorm.Expr("ST_GeomFromText(?, 4326)", locationStr),
-			"current_lat":      lat,
-			"current_lng":      lng,
 			"heading":          heading,
 			"updated_at":       time.Now(),
 		}).Error
