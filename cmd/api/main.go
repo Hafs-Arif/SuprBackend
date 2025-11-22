@@ -18,6 +18,7 @@ import (
 	"github.com/umar5678/go-backend/internal/database"
 	_ "github.com/umar5678/go-backend/internal/docs"
 	"github.com/umar5678/go-backend/internal/middleware"
+	"github.com/umar5678/go-backend/internal/modules/admin"
 	"github.com/umar5678/go-backend/internal/modules/auth"
 	"github.com/umar5678/go-backend/internal/modules/drivers"
 	"github.com/umar5678/go-backend/internal/modules/homeservices"
@@ -26,6 +27,7 @@ import (
 	_ "github.com/umar5678/go-backend/internal/modules/ratings/dto"
 	"github.com/umar5678/go-backend/internal/modules/riders"
 	"github.com/umar5678/go-backend/internal/modules/rides"
+	"github.com/umar5678/go-backend/internal/modules/serviceproviders"
 	todos "github.com/umar5678/go-backend/internal/modules/todo"
 	"github.com/umar5678/go-backend/internal/modules/tracking"
 	"github.com/umar5678/go-backend/internal/modules/vehicles"
@@ -110,7 +112,7 @@ func main() {
 		HeartbeatInterval:  30 * time.Second,
 	}
 
-	// 1. Create Manager
+	// 1. Create Managerccccc
 	wsManager := websocket.NewManager(wsConfig)
 	wsServer := websocket.NewServer(wsManager)
 
@@ -170,10 +172,13 @@ func main() {
 		ridersRepo := riders.NewRepository(db)
 		ridersService := riders.NewService(ridersRepo)
 		ridersHandler := riders.NewHandler(ridersService)
+		// Service Providers module
+		spRepo := serviceproviders.NewRepository(db)
+		spService := serviceproviders.NewService(spRepo)
 
 		// Auth module
 		authRepo := auth.NewRepository(db)
-		authService := auth.NewService(authRepo, cfg, ridersService)
+		authService := auth.NewService(authRepo, cfg, ridersService, spService)
 		authHandler := auth.NewHandler(authService)
 		authMiddleware := middleware.Auth(cfg)
 		auth.RegisterRoutes(v1, authHandler, authMiddleware)
@@ -233,10 +238,10 @@ func main() {
 		websocket.RegisterRoutes(router, cfg, wsServer)
 
 		// Admin module
-		// adminRepo := admin.NewRepository(db)
-		// adminService := admin.NewService(adminRepo, spRepo)
-		// adminHandler := admin.NewHandler(adminService)
-		// admin.RegisterRoutes(v1, adminHandler, authMiddleware)
+		adminRepo := admin.NewRepository(db)
+		adminService := admin.NewService(adminRepo, spRepo)
+		adminHandler := admin.NewHandler(adminService)
+		admin.RegisterRoutes(v1, adminHandler, authMiddleware)
 
 		// Home Services module
 		homeServicesRepo := homeservices.NewRepository(db)

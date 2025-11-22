@@ -8,6 +8,7 @@ import (
 	"github.com/umar5678/go-backend/internal/models"
 	authdto "github.com/umar5678/go-backend/internal/modules/auth/dto"
 	"github.com/umar5678/go-backend/internal/modules/riders"
+	"github.com/umar5678/go-backend/internal/modules/serviceproviders"
 	"github.com/umar5678/go-backend/internal/services/cache"
 	"github.com/umar5678/go-backend/internal/utils/jwt"
 	"github.com/umar5678/go-backend/internal/utils/logger"
@@ -33,16 +34,23 @@ type Service interface {
 }
 
 type service struct {
-	repo         Repository
-	cfg          *config.Config
-	riderService riders.Service
+	repo                   Repository
+	cfg                    *config.Config
+	riderService           riders.Service
+	serviceProviderService serviceproviders.Service // ✅ ADDED
 }
 
-func NewService(repo Repository, cfg *config.Config, riderService riders.Service) Service {
+func NewService(
+	repo Repository,
+	cfg *config.Config,
+	riderService riders.Service,
+	serviceProviderService serviceproviders.Service, // ✅ ADDED
+) Service {
 	return &service{
-		repo:         repo,
-		cfg:          cfg,
-		riderService: riderService,
+		repo:                   repo,
+		cfg:                    cfg,
+		riderService:           riderService,
+		serviceProviderService: serviceProviderService, // ✅ ADDED
 	}
 }
 
