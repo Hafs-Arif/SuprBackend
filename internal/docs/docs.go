@@ -2705,44 +2705,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/tracking/location": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "tracking"
-                ],
-                "summary": "Update driver location (called by driver app)",
-                "parameters": [
-                    {
-                        "description": "Location data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_tracking_dto.UpdateLocationRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/tracking/nearby": {
             "get": {
                 "produces": [
@@ -3538,23 +3500,11 @@ const docTemplate = `{
         "github_com_umar5678_go-backend_internal_modules_auth_dto.PhoneLoginRequest": {
             "type": "object",
             "required": [
-                "phone",
-                "role"
+                "phone"
             ],
             "properties": {
                 "phone": {
                     "type": "string"
-                },
-                "role": {
-                    "enum": [
-                        "rider",
-                        "driver"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_models.UserRole"
-                        }
-                    ]
                 }
             }
         },
@@ -3577,7 +3527,8 @@ const docTemplate = `{
                 "role": {
                     "enum": [
                         "rider",
-                        "driver"
+                        "driver",
+                        "service_provider"
                     ],
                     "allOf": [
                         {
@@ -5045,6 +4996,17 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_umar5678_go-backend_internal_modules_rides_dto.LocationDTO": {
+            "type": "object",
+            "properties": {
+                "latitude": {
+                    "type": "number"
+                },
+                "longitude": {
+                    "type": "number"
+                }
+            }
+        },
         "github_com_umar5678_go-backend_internal_modules_rides_dto.RejectRideRequest": {
             "type": "object",
             "required": [
@@ -5121,6 +5083,9 @@ const docTemplate = `{
                 },
                 "driverId": {
                     "type": "string"
+                },
+                "driverLocation": {
+                    "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_rides_dto.LocationDTO"
                 },
                 "dropoffAddress": {
                     "type": "string"
@@ -5302,39 +5267,6 @@ const docTemplate = `{
                 },
                 "searchLocation": {
                     "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_tracking_dto.LocationResponse"
-                }
-            }
-        },
-        "github_com_umar5678_go-backend_internal_modules_tracking_dto.UpdateLocationRequest": {
-            "type": "object",
-            "required": [
-                "latitude",
-                "longitude"
-            ],
-            "properties": {
-                "accuracy": {
-                    "type": "number",
-                    "minimum": 0
-                },
-                "heading": {
-                    "type": "integer",
-                    "maximum": 360,
-                    "minimum": 0
-                },
-                "latitude": {
-                    "type": "number",
-                    "maximum": 90,
-                    "minimum": -90
-                },
-                "longitude": {
-                    "type": "number",
-                    "maximum": 180,
-                    "minimum": -180
-                },
-                "speed": {
-                    "type": "number",
-                    "maximum": 300,
-                    "minimum": 0
                 }
             }
         },
@@ -5665,7 +5597,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "supr booking server in go",
-	Description:      "Production-ready Go backend API",
+	Description:      "Production-grade Go backend API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	// LeftDelim:        "{{",

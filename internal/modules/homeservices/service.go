@@ -11,7 +11,7 @@ import (
 
 	"github.com/umar5678/go-backend/internal/config"
 	"github.com/umar5678/go-backend/internal/models"
-	"github.com/umar5678/go-backend/internal/modules/homeservices/dto"
+	homeservicedto "github.com/umar5678/go-backend/internal/modules/homeservices/dto"
 	"github.com/umar5678/go-backend/internal/modules/wallet"
 	walletDTO "github.com/umar5678/go-backend/internal/modules/wallet/dto"
 	"github.com/umar5678/go-backend/internal/services/cache"
@@ -27,20 +27,20 @@ const (
 
 type Service interface {
 	// Customer - Service Catalog
-	ListCategories(ctx context.Context) ([]*dto.ServiceCategoryResponse, error)
-	GetCategoryWithTabs(ctx context.Context, id uint) (*dto.CategoryWithTabsResponse, error)
-	ListServices(ctx context.Context, query dto.ListServicesQuery) ([]*dto.ServiceListResponse, *response.PaginationMeta, error)
-	GetServiceDetails(ctx context.Context, id uint) (*dto.ServiceDetailResponse, error)
-	ListAddOns(ctx context.Context, categoryID uint) ([]*dto.AddOnResponse, error)
+	ListCategories(ctx context.Context) ([]*homeservicedto.ServiceCategoryResponse, error)
+	GetCategoryWithTabs(ctx context.Context, id uint) (*homeservicedto.CategoryWithTabsResponse, error)
+	ListServices(ctx context.Context, query homeservicedto.ListServicesQuery) ([]*homeservicedto.ServiceListResponse, *response.PaginationMeta, error)
+	GetServiceDetails(ctx context.Context, id uint) (*homeservicedto.ServiceDetailResponse, error)
+	ListAddOns(ctx context.Context, categoryID uint) ([]*homeservicedto.AddOnResponse, error)
 
 	// Customer - Orders
-	CreateOrder(ctx context.Context, userID string, req dto.CreateOrderRequest) (*dto.OrderResponse, error)
-	GetMyOrders(ctx context.Context, userID string, query dto.ListOrdersQuery) ([]*dto.OrderListResponse, *response.PaginationMeta, error)
-	GetOrderDetails(ctx context.Context, userID, orderID string) (*dto.OrderResponse, error)
+	CreateOrder(ctx context.Context, userID string, req homeservicedto.CreateOrderRequest) (*homeservicedto.OrderResponse, error)
+	GetMyOrders(ctx context.Context, userID string, query homeservicedto.ListOrdersQuery) ([]*homeservicedto.OrderListResponse, *response.PaginationMeta, error)
+	GetOrderDetails(ctx context.Context, userID, orderID string) (*homeservicedto.OrderResponse, error)
 	CancelOrder(ctx context.Context, userID, orderID string) error
 
 	// Provider - Orders
-	GetProviderOrders(ctx context.Context, providerID string, query dto.ListOrdersQuery) ([]*dto.OrderListResponse, *response.PaginationMeta, error)
+	GetProviderOrders(ctx context.Context, providerID string, query homeservicedto.ListOrdersQuery) ([]*homeservicedto.OrderListResponse, *response.PaginationMeta, error)
 	AcceptOrder(ctx context.Context, providerID, orderID string) error
 	RejectOrder(ctx context.Context, providerID, orderID string) error
 	StartOrder(ctx context.Context, providerID, orderID string) error
@@ -50,11 +50,11 @@ type Service interface {
 	FindAndNotifyNextProvider(orderID string)
 
 	// Admin
-	CreateCategory(ctx context.Context, req dto.CreateCategoryRequest) (*dto.CategoryWithTabsResponse, error)
-	CreateTab(ctx context.Context, req dto.CreateTabRequest) (*dto.ServiceTabResponse, error)
-	CreateService(ctx context.Context, req dto.CreateServiceRequest) (*dto.ServiceDetailResponse, error)
-	UpdateService(ctx context.Context, id uint, req dto.UpdateServiceRequest) (*dto.ServiceDetailResponse, error)
-	CreateAddOn(ctx context.Context, req dto.CreateAddOnRequest) (*dto.AddOnResponse, error)
+	CreateCategory(ctx context.Context, req homeservicedto.CreateCategoryRequest) (*homeservicedto.CategoryWithTabsResponse, error)
+	CreateTab(ctx context.Context, req homeservicedto.CreateTabRequest) (*homeservicedto.ServiceTabResponse, error)
+	CreateService(ctx context.Context, req homeservicedto.CreateServiceRequest) (*homeservicedto.ServiceDetailResponse, error)
+	UpdateService(ctx context.Context, id uint, req homeservicedto.UpdateServiceRequest) (*homeservicedto.ServiceDetailResponse, error)
+	CreateAddOn(ctx context.Context, req homeservicedto.CreateAddOnRequest) (*homeservicedto.AddOnResponse, error)
 }
 
 type service struct {
@@ -73,17 +73,17 @@ func NewService(repo Repository, walletService wallet.Service, cfg *config.Confi
 
 // --- Customer - Service Catalog ---
 
-func (s *service) ListCategories(ctx context.Context) ([]*dto.ServiceCategoryResponse, error) {
+func (s *service) ListCategories(ctx context.Context) ([]*homeservicedto.ServiceCategoryResponse, error) {
 	categories, err := s.repo.ListCategories(ctx)
 	if err != nil {
 		logger.Error("failed to list categories", "error", err)
 		return nil, response.InternalServerError("Failed to fetch categories", err)
 	}
 
-	return dto.ToServiceCategoryList(categories), nil
+	return homeservicedto.ToServiceCategoryList(categories), nil
 }
 
-func (s *service) GetCategoryWithTabs(ctx context.Context, id uint) (*dto.CategoryWithTabsResponse, error) {
+func (s *service) GetCategoryWithTabs(ctx context.Context, id uint) (*homeservicedto.CategoryWithTabsResponse, error) {
 	category, err := s.repo.GetCategoryWithTabs(ctx, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -93,10 +93,10 @@ func (s *service) GetCategoryWithTabs(ctx context.Context, id uint) (*dto.Catego
 		return nil, response.InternalServerError("Failed to fetch category", err)
 	}
 
-	return dto.ToCategoryWithTabsResponse(category), nil
+	return homeservicedto.ToCategoryWithTabsResponse(category), nil
 }
 
-func (s *service) ListServices(ctx context.Context, query dto.ListServicesQuery) ([]*dto.ServiceListResponse, *response.PaginationMeta, error) {
+func (s *service) ListServices(ctx context.Context, query homeservicedto.ListServicesQuery) ([]*homeservicedto.ServiceListResponse, *response.PaginationMeta, error) {
 	query.SetDefaults()
 
 	services, total, err := s.repo.ListServices(ctx, query)
@@ -105,9 +105,9 @@ func (s *service) ListServices(ctx context.Context, query dto.ListServicesQuery)
 		return nil, nil, response.InternalServerError("Failed to fetch services", err)
 	}
 
-	responses := make([]*dto.ServiceListResponse, len(services))
+	responses := make([]*homeservicedto.ServiceListResponse, len(services))
 	for i, svc := range services {
-		responses[i] = &dto.ServiceListResponse{
+		responses[i] = &homeservicedto.ServiceListResponse{
 			ID:                 svc.ID,
 			CategoryID:         svc.CategoryID,
 			TabID:              svc.TabID,
@@ -127,7 +127,7 @@ func (s *service) ListServices(ctx context.Context, query dto.ListServicesQuery)
 	return responses, &pagination, nil
 }
 
-func (s *service) GetServiceDetails(ctx context.Context, id uint) (*dto.ServiceDetailResponse, error) {
+func (s *service) GetServiceDetails(ctx context.Context, id uint) (*homeservicedto.ServiceDetailResponse, error) {
 	service, err := s.repo.GetServiceWithOptions(ctx, id)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -137,26 +137,26 @@ func (s *service) GetServiceDetails(ctx context.Context, id uint) (*dto.ServiceD
 		return nil, response.InternalServerError("Failed to fetch service", err)
 	}
 
-	return dto.ToServiceDetailResponse(service), nil
+	return homeservicedto.ToServiceDetailResponse(service), nil
 }
 
-func (s *service) ListAddOns(ctx context.Context, categoryID uint) ([]*dto.AddOnResponse, error) {
+func (s *service) ListAddOns(ctx context.Context, categoryID uint) ([]*homeservicedto.AddOnResponse, error) {
 	addOns, err := s.repo.ListAddOns(ctx, categoryID)
 	if err != nil {
 		logger.Error("failed to list add-ons", "error", err, "categoryID", categoryID)
 		return nil, response.InternalServerError("Failed to fetch add-ons", err)
 	}
 
-	responses := make([]*dto.AddOnResponse, len(addOns))
+	responses := make([]*homeservicedto.AddOnResponse, len(addOns))
 	for i, addon := range addOns {
-		responses[i] = dto.ToAddOnResponse(&addon)
+		responses[i] = homeservicedto.ToAddOnResponse(&addon)
 	}
 
 	return responses, nil
 }
 
 // --- Customer - Orders ---
-func (s *service) CreateOrder(ctx context.Context, userID string, req dto.CreateOrderRequest) (*dto.OrderResponse, error) {
+func (s *service) CreateOrder(ctx context.Context, userID string, req homeservicedto.CreateOrderRequest) (*homeservicedto.OrderResponse, error) {
 	// 1. Validate and set defaults
 	if err := req.Validate(); err != nil {
 		return nil, response.BadRequest(err.Error())
@@ -298,10 +298,10 @@ func (s *service) CreateOrder(ctx context.Context, userID string, req dto.Create
 	// 7. Trigger async provider search
 	go s.FindAndNotifyNextProvider(order.ID)
 
-	return dto.ToOrderResponse(order), nil
+	return homeservicedto.ToOrderResponse(order), nil
 }
 
-// func (s *service) CreateOrder(ctx context.Context, userID string, req dto.CreateOrderRequest) (*dto.OrderResponse, error) {
+// func (s *service) CreateOrder(ctx context.Context, userID string, req homeservicedto.CreateOrderRequest) (*homeservicedto.OrderResponse, error) {
 // 	// 1. Validate and set defaults
 // 	if err := req.Validate(); err != nil {
 // 		return nil, response.BadRequest(err.Error())
@@ -440,10 +440,10 @@ func (s *service) CreateOrder(ctx context.Context, userID string, req dto.Create
 // 	// 7. Trigger async provider search
 // 	go s.FindAndNotifyNextProvider(order.ID)
 
-// 	return dto.ToOrderResponse(order), nil
+// 	return homeservicedto.ToOrderResponse(order), nil
 // }
 
-func (s *service) GetMyOrders(ctx context.Context, userID string, query dto.ListOrdersQuery) ([]*dto.OrderListResponse, *response.PaginationMeta, error) {
+func (s *service) GetMyOrders(ctx context.Context, userID string, query homeservicedto.ListOrdersQuery) ([]*homeservicedto.OrderListResponse, *response.PaginationMeta, error) {
 	query.SetDefaults()
 
 	orders, total, err := s.repo.ListUserOrders(ctx, userID, query)
@@ -452,13 +452,13 @@ func (s *service) GetMyOrders(ctx context.Context, userID string, query dto.List
 		return nil, nil, response.InternalServerError("Failed to fetch orders", err)
 	}
 
-	responses := dto.ToOrderListResponses(orders)
+	responses := homeservicedto.ToOrderListResponses(orders)
 	pagination := response.NewPaginationMeta(total, query.Page, query.Limit)
 
 	return responses, &pagination, nil
 }
 
-func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (*dto.OrderResponse, error) {
+func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (*homeservicedto.OrderResponse, error) {
 	order, err := s.repo.GetOrderByIDWithDetails(ctx, orderID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -472,10 +472,10 @@ func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (
 		return nil, response.ForbiddenError("You don't have access to this order")
 	}
 
-	return dto.ToOrderResponse(order), nil
+	return homeservicedto.ToOrderResponse(order), nil
 }
 
-// func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (*dto.OrderResponse, error) {
+// func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (*homeservicedto.OrderResponse, error) {
 // 	order, err := s.repo.GetOrderByIDWithDetails(ctx, orderID)
 // 	if err != nil {
 // 		if err == gorm.ErrRecordNotFound {
@@ -489,7 +489,7 @@ func (s *service) GetOrderDetails(ctx context.Context, userID, orderID string) (
 // 		return nil, response.ForbiddenError("You don't have access to this order")
 // 	}
 
-// 	return dto.ToOrderResponse(order), nil
+// 	return homeservicedto.ToOrderResponse(order), nil
 // }
 
 func (s *service) CancelOrder(ctx context.Context, userID, orderID string) error {
@@ -533,7 +533,7 @@ func (s *service) CancelOrder(ctx context.Context, userID, orderID string) error
 
 // --- Provider - Orders ---
 
-func (s *service) GetProviderOrders(ctx context.Context, providerID string, query dto.ListOrdersQuery) ([]*dto.OrderListResponse, *response.PaginationMeta, error) {
+func (s *service) GetProviderOrders(ctx context.Context, providerID string, query homeservicedto.ListOrdersQuery) ([]*homeservicedto.OrderListResponse, *response.PaginationMeta, error) {
 	query.SetDefaults()
 
 	orders, total, err := s.repo.ListProviderOrders(ctx, providerID, query)
@@ -542,7 +542,7 @@ func (s *service) GetProviderOrders(ctx context.Context, providerID string, quer
 		return nil, nil, response.InternalServerError("Failed to fetch orders", err)
 	}
 
-	responses := dto.ToOrderListResponses(orders)
+	responses := homeservicedto.ToOrderListResponses(orders)
 	pagination := response.NewPaginationMeta(total, query.Page, query.Limit)
 
 	return responses, &pagination, nil
@@ -833,7 +833,7 @@ func (s *service) checkOfferTimeout(orderID, providerID string) {
 
 // --- Admin - Service Management ---
 
-func (s *service) CreateCategory(ctx context.Context, req dto.CreateCategoryRequest) (*dto.CategoryWithTabsResponse, error) {
+func (s *service) CreateCategory(ctx context.Context, req homeservicedto.CreateCategoryRequest) (*homeservicedto.CategoryWithTabsResponse, error) {
 	category := &models.ServiceCategory{
 		Name:        req.Name,
 		Description: req.Description,
@@ -851,10 +851,10 @@ func (s *service) CreateCategory(ctx context.Context, req dto.CreateCategoryRequ
 
 	logger.Info("category created", "categoryID", category.ID, "name", category.Name)
 
-	return dto.ToCategoryWithTabsResponse(category), nil
+	return homeservicedto.ToCategoryWithTabsResponse(category), nil
 }
 
-func (s *service) CreateTab(ctx context.Context, req dto.CreateTabRequest) (*dto.ServiceTabResponse, error) {
+func (s *service) CreateTab(ctx context.Context, req homeservicedto.CreateTabRequest) (*homeservicedto.ServiceTabResponse, error) {
 	// Verify category exists
 	_, err := s.repo.GetCategoryByID(ctx, req.CategoryID)
 	if err != nil {
@@ -881,7 +881,7 @@ func (s *service) CreateTab(ctx context.Context, req dto.CreateTabRequest) (*dto
 		return nil, response.InternalServerError("Failed to create tab", err)
 	}
 
-	response := &dto.ServiceTabResponse{
+	response := &homeservicedto.ServiceTabResponse{
 		ID:            tab.ID,
 		CategoryID:    tab.CategoryID,
 		Name:          tab.Name,
@@ -901,7 +901,7 @@ func (s *service) CreateTab(ctx context.Context, req dto.CreateTabRequest) (*dto
 	return response, nil
 }
 
-func (s *service) CreateService(ctx context.Context, req dto.CreateServiceRequest) (*dto.ServiceDetailResponse, error) {
+func (s *service) CreateService(ctx context.Context, req homeservicedto.CreateServiceRequest) (*homeservicedto.ServiceDetailResponse, error) {
 	// Verify category exists
 	_, err := s.repo.GetCategoryByID(ctx, req.CategoryID)
 	if err != nil {
@@ -948,10 +948,10 @@ func (s *service) CreateService(ctx context.Context, req dto.CreateServiceReques
 		return nil, response.InternalServerError("Failed to fetch created service", err)
 	}
 
-	return dto.ToServiceDetailResponse(completeService), nil
+	return homeservicedto.ToServiceDetailResponse(completeService), nil
 }
 
-func (s *service) UpdateService(ctx context.Context, id uint, req dto.UpdateServiceRequest) (*dto.ServiceDetailResponse, error) {
+func (s *service) UpdateService(ctx context.Context, id uint, req homeservicedto.UpdateServiceRequest) (*homeservicedto.ServiceDetailResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, response.BadRequest(err.Error())
 	}
@@ -1003,10 +1003,10 @@ func (s *service) UpdateService(ctx context.Context, id uint, req dto.UpdateServ
 		return nil, response.InternalServerError("Failed to fetch updated service", err)
 	}
 
-	return dto.ToServiceDetailResponse(completeService), nil
+	return homeservicedto.ToServiceDetailResponse(completeService), nil
 }
 
-func (s *service) CreateAddOn(ctx context.Context, req dto.CreateAddOnRequest) (*dto.AddOnResponse, error) {
+func (s *service) CreateAddOn(ctx context.Context, req homeservicedto.CreateAddOnRequest) (*homeservicedto.AddOnResponse, error) {
 	// Verify category exists
 	_, err := s.repo.GetCategoryByID(ctx, req.CategoryID)
 	if err != nil {
@@ -1035,12 +1035,12 @@ func (s *service) CreateAddOn(ctx context.Context, req dto.CreateAddOnRequest) (
 
 	logger.Info("add-on created", "addOnID", addOn.ID, "title", addOn.Title)
 
-	return dto.ToAddOnResponse(addOn), nil
+	return homeservicedto.ToAddOnResponse(addOn), nil
 }
 
 // --- Helper Functions ---
 
-func (s *service) calculateItemPrice(svc *models.Service, selectedOptions []dto.SelectedOptionRequest) (float64, int, models.JSONBMap, error) {
+func (s *service) calculateItemPrice(svc *models.Service, selectedOptions []homeservicedto.SelectedOptionRequest) (float64, int, models.JSONBMap, error) {
 	price := svc.BasePrice
 	duration := svc.BaseDurationMinutes
 	optionsMap := make(models.JSONBMap)

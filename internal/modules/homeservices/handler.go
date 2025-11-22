@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/umar5678/go-backend/internal/modules/homeservices/dto"
+	homeservicedto "github.com/umar5678/go-backend/internal/modules/homeservices/dto"
 	"github.com/umar5678/go-backend/internal/utils/response"
 )
 
@@ -24,7 +24,7 @@ func NewHandler(service Service) *Handler {
 // @Description Get all active service categories
 // @Tags home-services
 // @Produce json
-// @Success 200 {object} response.Response{data=[]dto.ServiceCategoryResponse}
+// @Success 200 {object} response.Response{data=[]homeservicedto.ServiceCategoryResponse}
 // @Router /services/categories [get]
 func (h *Handler) ListCategories(c *gin.Context) {
 	categories, err := h.service.ListCategories(c.Request.Context())
@@ -42,7 +42,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 // @Tags home-services
 // @Produce json
 // @Param id path int true "Category ID"
-// @Success 200 {object} response.Response{data=dto.CategoryWithTabsResponse}
+// @Success 200 {object} response.Response{data=homeservicedto.CategoryWithTabsResponse}
 // @Failure 404 {object} response.Response
 // @Router /services/categories/{id} [get]
 func (h *Handler) GetCategoryWithTabs(c *gin.Context) {
@@ -73,10 +73,10 @@ func (h *Handler) GetCategoryWithTabs(c *gin.Context) {
 // @Param minPrice query number false "Minimum price"
 // @Param maxPrice query number false "Maximum price"
 // @Param isActive query bool false "Filter by active status"
-// @Success 200 {object} response.Response{data=[]dto.ServiceListResponse}
+// @Success 200 {object} response.Response{data=[]homeservicedto.ServiceListResponse}
 // @Router /services [get]
 func (h *Handler) ListServices(c *gin.Context) {
-	var query dto.ListServicesQuery
+	var query homeservicedto.ListServicesQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.Error(response.BadRequest("Invalid query parameters"))
 		return
@@ -98,7 +98,7 @@ func (h *Handler) ListServices(c *gin.Context) {
 // @Tags home-services
 // @Produce json
 // @Param id path int true "Service ID"
-// @Success 200 {object} response.Response{data=dto.ServiceDetailResponse}
+// @Success 200 {object} response.Response{data=homeservicedto.ServiceDetailResponse}
 // @Failure 404 {object} response.Response
 // @Router /services/{id} [get]
 func (h *Handler) GetServiceDetails(c *gin.Context) {
@@ -123,7 +123,7 @@ func (h *Handler) GetServiceDetails(c *gin.Context) {
 // @Tags home-services
 // @Produce json
 // @Param categoryId query int true "Category ID"
-// @Success 200 {object} response.Response{data=[]dto.AddOnResponse}
+// @Success 200 {object} response.Response{data=[]homeservicedto.AddOnResponse}
 // @Router /services/addons [get]
 func (h *Handler) ListAddOns(c *gin.Context) {
 	var categoryID uint
@@ -150,14 +150,14 @@ func (h *Handler) ListAddOns(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body dto.CreateOrderRequest true "Order details"
-// @Success 201 {object} response.Response{data=dto.OrderResponse}
+// @Param request body homeservicedto.CreateOrderRequest true "Order details"
+// @Success 201 {object} response.Response{data=homeservicedto.OrderResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 422 {object} response.Response
 // @Router /services/orders [post]
 func (h *Handler) CreateOrder(c *gin.Context) {
-	var req dto.CreateOrderRequest
+	var req homeservicedto.CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return
@@ -188,11 +188,11 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(20)
 // @Param status query string false "Filter by status"
-// @Success 200 {object} response.Response{data=[]dto.OrderListResponse}
+// @Success 200 {object} response.Response{data=[]homeservicedto.OrderListResponse}
 // @Failure 401 {object} response.Response
 // @Router /services/orders [get]
 func (h *Handler) GetMyOrders(c *gin.Context) {
-	var query dto.ListOrdersQuery
+	var query homeservicedto.ListOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.Error(response.BadRequest("Invalid query parameters"))
 		return
@@ -217,7 +217,7 @@ func (h *Handler) GetMyOrders(c *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Order ID"
-// @Success 200 {object} response.Response{data=dto.OrderResponse}
+// @Success 200 {object} response.Response{data=homeservicedto.OrderResponse}
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
 // @Failure 404 {object} response.Response
@@ -271,11 +271,11 @@ func (h *Handler) CancelOrder(c *gin.Context) {
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(20)
 // @Param status query string false "Filter by status"
-// @Success 200 {object} response.Response{data=[]dto.OrderListResponse}
+// @Success 200 {object} response.Response{data=[]homeservicedto.OrderListResponse}
 // @Failure 401 {object} response.Response
 // @Router /services/provider/orders [get]
 func (h *Handler) GetProviderOrders(c *gin.Context) {
-	var query dto.ListOrdersQuery
+	var query homeservicedto.ListOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.Error(response.BadRequest("Invalid query parameters"))
 		return
@@ -402,11 +402,11 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body dto.CreateCategoryRequest true "Category details"
-// @Success 201 {object} response.Response{data=dto.CategoryWithTabsResponse}
+// @Param request body homeservicedto.CreateCategoryRequest true "Category details"
+// @Success 201 {object} response.Response{data=homeservicedto.CategoryWithTabsResponse}
 // @Router /services/admin/categories [post]
 func (h *Handler) CreateCategory(c *gin.Context) {
-	var req dto.CreateCategoryRequest
+	var req homeservicedto.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return
@@ -428,11 +428,11 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body dto.CreateTabRequest true "Tab details"
-// @Success 201 {object} response.Response{data=dto.ServiceTabResponse}
+// @Param request body homeservicedto.CreateTabRequest true "Tab details"
+// @Success 201 {object} response.Response{data=homeservicedto.ServiceTabResponse}
 // @Router /services/admin/tabs [post]
 func (h *Handler) CreateTab(c *gin.Context) {
-	var req dto.CreateTabRequest
+	var req homeservicedto.CreateTabRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return
@@ -454,14 +454,14 @@ func (h *Handler) CreateTab(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body dto.CreateServiceRequest true "Service details"
-// @Success 201 {object} response.Response{data=dto.ServiceResponse}
+// @Param request body homeservicedto.CreateServiceRequest true "Service details"
+// @Success 201 {object} response.Response{data=homeservicedto.ServiceResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
 // @Router /services/admin/services [post]
 func (h *Handler) CreateService(c *gin.Context) {
-	var req dto.CreateServiceRequest
+	var req homeservicedto.CreateServiceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return
@@ -483,11 +483,11 @@ func (h *Handler) CreateService(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body dto.CreateAddOnRequest true "Add-on details"
-// @Success 201 {object} response.Response{data=dto.AddOnResponse}
+// @Param request body homeservicedto.CreateAddOnRequest true "Add-on details"
+// @Success 201 {object} response.Response{data=homeservicedto.AddOnResponse}
 // @Router /services/admin/addons [post]
 func (h *Handler) CreateAddOn(c *gin.Context) {
-	var req dto.CreateAddOnRequest
+	var req homeservicedto.CreateAddOnRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return
@@ -510,8 +510,8 @@ func (h *Handler) CreateAddOn(c *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path int true "Service ID"
-// @Param request body dto.UpdateServiceRequest true "Update details"
-// @Success 200 {object} response.Response{data=dto.ServiceResponse}
+// @Param request body homeservicedto.UpdateServiceRequest true "Update details"
+// @Success 200 {object} response.Response{data=homeservicedto.ServiceResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Failure 403 {object} response.Response
@@ -526,7 +526,7 @@ func (h *Handler) UpdateService(c *gin.Context) {
 		return
 	}
 
-	var req dto.UpdateServiceRequest
+	var req homeservicedto.UpdateServiceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(response.BadRequest("Invalid request body"))
 		return

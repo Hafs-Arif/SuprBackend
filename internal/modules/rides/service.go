@@ -1088,24 +1088,22 @@ func (s *service) ListRides(ctx context.Context, userID string, role string, req
 func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto.CancelRideRequest) error {
 	ride, err := s.repo.FindRideByID(ctx, rideID)
 	if err != nil {
-		return response.NotFoundError("Ride")
+		return response.NotFoundError("Ride (to cancel)")
 	}
 
-	// ✅ FIX: Check authorization properly
+	// ✅ Check authorization
 	var isRider bool
 	var isDriver bool
 	var driverProfile *models.DriverProfile
 	var driverProfileID string
 
-	// Check if user is the rider (riderID is user ID)
+	// Check if user is the rider
 	isRider = ride.RiderID == userID
 
-	// ✅ Check if user is the driver (need to fetch driver profile first)
+	// Check if user is the driver
 	if ride.DriverID != nil {
-		// Try to fetch driver profile by user ID
 		driverProfile, err = s.driversRepo.FindDriverByUserID(ctx, userID)
 		if err == nil && driverProfile != nil {
-			// User has a driver profile - check if it matches the ride's driver
 			isDriver = driverProfile.ID == *ride.DriverID
 			driverProfileID = driverProfile.ID
 		}
@@ -1126,21 +1124,42 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 		return response.BadRequest("Cannot cancel a completed or already cancelled ride")
 	}
 
-	if ride.Status == "started" {
-		return response.BadRequest("Cannot cancel an ongoing ride")
-	}
+	// ✅ REMOVED: Now allowing cancellation of "started" rides
 
-	// Determine cancellation fee
-	var cancellationFee float64
+	// ✅ UPDATED: Dynamic cancellation fee based on ride status
+	var riderCancellationFee float64
+	var driverPenalty float64
 	cancelledBy := "rider"
+
 	if isDriver {
 		cancelledBy = "driver"
 	}
 
-	// Apply cancellation fee rules
-	if ride.Status == "accepted" || ride.Status == "arrived" {
+	// ✅ Fee Structure based on ride status
+	switch ride.Status {
+	case "searching":
+		// No fees during search
+		riderCancellationFee = 0.0
+		driverPenalty = 0.0
+
+	case "accepted", "arrived":
+		// Standard cancellation fees
 		if isRider {
-			cancellationFee = 2.0 // $2 cancellation fee for rider
+			riderCancellationFee = 2.0 // $2 for rider
+		} else {
+			driverPenalty = 3.0 // $3 penalty for driver cancelling after accepting
+		}
+
+	case "started":
+		// ✅ NEW: Higher fees for ongoing rides
+		if isRider {
+			// Rider cancels ongoing ride - higher fee
+			riderCancellationFee = 5.0 // $5 cancellation fee
+			driverPenalty = 0.0        // Driver gets compensated from rider's fee
+		} else {
+			// Driver cancels ongoing ride - penalty + rider compensation
+			driverPenalty = 10.0       // $10 penalty from driver
+			riderCancellationFee = 0.0 // Rider gets refunded + compensation
 		}
 	}
 
@@ -1162,51 +1181,143 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 		"isRider", isRider,
 		"isDriver", isDriver,
 		"driverProfileID", driverProfileID,
-		"cancellationFee", cancellationFee,
+		"rideStatus", ride.Status,
+		"riderCancellationFee", riderCancellationFee,
+		"driverPenalty", driverPenalty,
 	)
 
-	// Process wallet transactions
+	// ✅ Get driver details for wallet operations
+	var driver *models.DriverProfile
+	if ride.DriverID != nil {
+		if driverProfile != nil && driverProfile.ID == *ride.DriverID {
+			driver = driverProfile
+		} else {
+			driver, err = s.driversRepo.FindDriverByID(ctx, *ride.DriverID)
+			if err != nil {
+				logger.Error("failed to fetch driver for cancellation",
+					"error", err,
+					"driverID", *ride.DriverID,
+					"rideID", rideID,
+				)
+			}
+		}
+	}
+
+	// ✅ UPDATED: Wallet transaction processing based on scenario
 	if ride.WalletHoldID != nil {
-		if cancellationFee > 0 {
-			// Capture cancellation fee, release rest
+		switch {
+		// Scenario 1: Rider cancels ongoing ride
+		case ride.Status == "started" && isRider:
+			// Capture full cancellation fee from rider's hold
 			if _, err := s.walletService.CaptureHold(ctx, ride.RiderID, walletdto.CaptureHoldRequest{
 				HoldID:      *ride.WalletHoldID,
-				Amount:      &cancellationFee,
+				Amount:      &riderCancellationFee,
+				Description: "Cancellation fee for ongoing ride",
+			}); err != nil {
+				logger.Error("failed to capture ongoing ride cancellation fee", "error", err, "rideID", rideID)
+			} else {
+				logger.Info("ongoing ride cancellation fee captured",
+					"rideID", rideID,
+					"amount", riderCancellationFee,
+					"riderID", ride.RiderID,
+				)
+
+				// Credit driver with cancellation fee
+				if driver != nil {
+					s.walletService.CreditWallet(
+						ctx,
+						driver.UserID,
+						riderCancellationFee,
+						"cancellation_fee",
+						rideID,
+						"Compensation for cancelled ongoing ride",
+						nil,
+					)
+
+					logger.Info("driver compensated for ongoing ride cancellation",
+						"rideID", rideID,
+						"driverID", driver.ID,
+						"driverUserID", driver.UserID,
+						"amount", riderCancellationFee,
+					)
+				}
+			}
+
+		// Scenario 2: Driver cancels ongoing ride
+		case ride.Status == "started" && isDriver:
+			// Release rider's hold completely
+			if err := s.walletService.ReleaseHold(ctx, ride.RiderID, walletdto.ReleaseHoldRequest{
+				HoldID: *ride.WalletHoldID,
+			}); err != nil {
+				logger.Error("failed to release rider hold", "error", err, "rideID", rideID)
+			} else {
+				logger.Info("rider hold released due to driver cancellation",
+					"rideID", rideID,
+					"riderID", ride.RiderID,
+				)
+			}
+
+			// Debit driver's wallet as penalty
+			if driver != nil {
+				if _, err := s.walletService.DebitWallet(
+					ctx,
+					driver.UserID,
+					driverPenalty,
+					"cancellation_penalty",
+					rideID,
+					"Penalty for cancelling ongoing ride",
+					nil,
+				); err != nil {
+					logger.Error("failed to debit driver penalty", "error", err, "driverID", driver.ID)
+				} else {
+					logger.Info("driver penalty applied",
+						"rideID", rideID,
+						"driverID", driver.ID,
+						"penalty", driverPenalty,
+					)
+
+					// Credit rider with compensation from driver's penalty
+					compensationAmount := driverPenalty * 0.5 // Give rider 50% of penalty
+					s.walletService.CreditWallet(
+						ctx,
+						ride.RiderID,
+						compensationAmount,
+						"cancellation_compensation",
+						rideID,
+						"Compensation for driver cancelling ongoing ride",
+						nil,
+					)
+
+					logger.Info("rider compensated for driver cancellation",
+						"rideID", rideID,
+						"riderID", ride.RiderID,
+						"amount", compensationAmount,
+					)
+				}
+			}
+
+		// Scenario 3: Standard cancellation (accepted/arrived)
+		case riderCancellationFee > 0:
+			// Capture standard cancellation fee
+			if _, err := s.walletService.CaptureHold(ctx, ride.RiderID, walletdto.CaptureHoldRequest{
+				HoldID:      *ride.WalletHoldID,
+				Amount:      &riderCancellationFee,
 				Description: "Cancellation fee",
 			}); err != nil {
 				logger.Error("failed to capture cancellation fee", "error", err, "rideID", rideID)
 			} else {
 				logger.Info("cancellation fee captured",
 					"rideID", rideID,
-					"amount", cancellationFee,
+					"amount", riderCancellationFee,
 					"riderID", ride.RiderID,
 				)
-			}
 
-			// ✅ Credit driver with cancellation fee if assigned
-			if ride.DriverID != nil {
-				// If we already have driver profile from authorization, use it
-				// Otherwise, fetch it
-				var driver *models.DriverProfile
-				if driverProfile != nil && driverProfile.ID == *ride.DriverID {
-					driver = driverProfile
-				} else {
-					driver, err = s.driversRepo.FindDriverByID(ctx, *ride.DriverID)
-					if err != nil {
-						logger.Error("failed to fetch driver for cancellation fee credit",
-							"error", err,
-							"driverID", *ride.DriverID,
-							"rideID", rideID,
-						)
-					}
-				}
-
+				// Credit driver with cancellation fee
 				if driver != nil {
-					// ✅ Use driver's user ID for wallet credit
 					s.walletService.CreditWallet(
 						ctx,
-						driver.UserID, // ✅ Use user ID, not driver profile ID
-						cancellationFee,
+						driver.UserID,
+						riderCancellationFee,
 						"cancellation_fee",
 						rideID,
 						"Cancellation fee compensation",
@@ -1216,13 +1327,41 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 					logger.Info("cancellation fee credited to driver",
 						"rideID", rideID,
 						"driverID", driver.ID,
-						"driverUserID", driver.UserID,
-						"driverName", driver.User.Name,
-						"amount", cancellationFee,
+						"amount", riderCancellationFee,
 					)
 				}
 			}
-		} else {
+
+		// Scenario 4: Driver penalty (driver cancels accepted/arrived ride)
+		case driverPenalty > 0 && driver != nil:
+			// Release rider's hold
+			if err := s.walletService.ReleaseHold(ctx, ride.RiderID, walletdto.ReleaseHoldRequest{
+				HoldID: *ride.WalletHoldID,
+			}); err != nil {
+				logger.Error("failed to release hold", "error", err, "rideID", rideID)
+			}
+
+			// Debit driver's wallet as penalty
+			if _, err := s.walletService.DebitWallet(
+				ctx,
+				driver.UserID,
+				driverPenalty,
+				"cancellation_penalty",
+				rideID,
+				"Penalty for cancelling accepted ride",
+				nil,
+			); err != nil {
+				logger.Error("failed to debit driver penalty", "error", err, "driverID", driver.ID)
+			} else {
+				logger.Info("driver cancellation penalty applied",
+					"rideID", rideID,
+					"driverID", driver.ID,
+					"penalty", driverPenalty,
+				)
+			}
+
+		// Scenario 5: No fees (searching status)
+		default:
 			// Release hold completely
 			if err := s.walletService.ReleaseHold(ctx, ride.RiderID, walletdto.ReleaseHoldRequest{
 				HoldID: *ride.WalletHoldID,
@@ -1237,18 +1376,18 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 		}
 	}
 
-	// ✅ CLEANUP: Update driver status and clear all caches if driver was assigned
+	// ✅ CLEANUP: Update driver status and clear caches
 	if ride.DriverID != nil {
 		driverID := *ride.DriverID
 
 		// Update driver status to online
 		s.driversRepo.UpdateDriverStatus(ctx, driverID, "online")
 
-		// ✅ Clear driver busy flag from cache
+		// Clear driver busy flag
 		busyKey := fmt.Sprintf("driver:busy:%s", driverID)
 		cache.Delete(ctx, busyKey)
 
-		// ✅ NEW: Clear active ride tracking cache
+		// Clear active ride tracking cache
 		activeRideCacheKey := fmt.Sprintf("driver:active:ride:%s", driverID)
 		cache.Delete(ctx, activeRideCacheKey)
 
@@ -1258,55 +1397,47 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 			"clearedKeys", []string{busyKey, activeRideCacheKey},
 		)
 
-		// ✅ Get driver details for WebSocket notification
-		// If we already have driver profile from authorization, use it
-		// Otherwise, fetch it
-		var driver *models.DriverProfile
-		if driverProfile != nil && driverProfile.ID == driverID {
-			driver = driverProfile
-		} else {
-			driver, err = s.driversRepo.FindDriverByID(ctx, driverID)
-			if err != nil {
-				logger.Error("failed to fetch driver for cancellation notification",
-					"error", err,
-					"driverID", driverID,
-					"rideID", rideID,
-				)
-			}
-		}
+		// Notify driver (if driver didn't cancel)
+		if driver != nil && !isDriver {
+			websocketutil.SendToUser(driver.UserID, websocket.TypeRideCancelled, map[string]interface{}{
+				"rideId":       rideID,
+				"message":      "Ride was cancelled by rider",
+				"reason":       req.Reason,
+				"compensation": riderCancellationFee,
+				"timestamp":    time.Now().UTC(),
+			})
 
-		if driver != nil {
-			// ✅ Notify driver via WebSocket using user ID (only if driver didn't cancel)
-			if !isDriver {
-				websocketutil.SendToUser(driver.UserID, websocket.TypeRideCancelled, map[string]interface{}{
-					"rideId":    rideID,
-					"message":   "Ride was cancelled by rider",
-					"reason":    req.Reason,
-					"timestamp": time.Now().UTC(),
-				})
-
-				logger.Info("driver notified of cancellation",
-					"rideID", rideID,
-					"driverID", driver.ID,
-					"driverUserID", driver.UserID,
-					"driverName", driver.User.Name,
-					"cancelledBy", "rider",
-				)
-			}
+			logger.Info("driver notified of cancellation",
+				"rideID", rideID,
+				"driverID", driver.ID,
+				"cancelledBy", "rider",
+			)
 		}
 	}
 
-	// ✅ Clear ride cache
+	// Clear ride cache
 	rideCacheKey := fmt.Sprintf("ride:active:%s", rideID)
 	cache.Delete(ctx, rideCacheKey)
 
-	// ✅ Notify rider via WebSocket (ride.RiderID is user ID, so OK)
+	// Notify rider (if rider didn't cancel)
 	if isDriver {
+		var message string
+		var compensation float64
+
+		if ride.Status == "started" {
+			message = "Ongoing ride was cancelled by driver. You will receive compensation."
+			compensation = driverPenalty * 0.5
+		} else {
+			message = "Ride was cancelled by driver"
+			compensation = 0
+		}
+
 		websocketutil.SendToUser(ride.RiderID, websocket.TypeRideCancelled, map[string]interface{}{
-			"rideId":    rideID,
-			"message":   "Ride was cancelled by driver",
-			"reason":    req.Reason,
-			"timestamp": time.Now().UTC(),
+			"rideId":       rideID,
+			"message":      message,
+			"reason":       req.Reason,
+			"compensation": compensation,
+			"timestamp":    time.Now().UTC(),
 		})
 
 		logger.Info("rider notified of cancellation",
@@ -1320,13 +1451,257 @@ func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto
 		"rideID", rideID,
 		"cancelledBy", cancelledBy,
 		"userID", userID,
-		"cancellationFee", cancellationFee,
-		"driverID", ride.DriverID,
+		"rideStatus", ride.Status,
+		"riderFee", riderCancellationFee,
+		"driverPenalty", driverPenalty,
 		"status", "success",
 	)
 
 	return nil
 }
+
+// func (s *service) CancelRide(ctx context.Context, userID, rideID string, req dto.CancelRideRequest) error {
+// 	ride, err := s.repo.FindRideByID(ctx, rideID)
+// 	if err != nil {
+// 		return response.NotFoundError("Ride")
+// 	}
+
+// 	// ✅ FIX: Check authorization properly
+// 	var isRider bool
+// 	var isDriver bool
+// 	var driverProfile *models.DriverProfile
+// 	var driverProfileID string
+
+// 	// Check if user is the rider (riderID is user ID)
+// 	isRider = ride.RiderID == userID
+
+// 	// ✅ Check if user is the driver (need to fetch driver profile first)
+// 	if ride.DriverID != nil {
+// 		// Try to fetch driver profile by user ID
+// 		driverProfile, err = s.driversRepo.FindDriverByUserID(ctx, userID)
+// 		if err == nil && driverProfile != nil {
+// 			// User has a driver profile - check if it matches the ride's driver
+// 			isDriver = driverProfile.ID == *ride.DriverID
+// 			driverProfileID = driverProfile.ID
+// 		}
+// 	}
+
+// 	if !isRider && !isDriver {
+// 		logger.Warn("unauthorized cancellation attempt",
+// 			"userID", userID,
+// 			"rideID", rideID,
+// 			"riderID", ride.RiderID,
+// 			"rideDriverID", ride.DriverID,
+// 		)
+// 		return response.ForbiddenError("Not authorized to cancel this ride")
+// 	}
+
+// 	// Check if ride can be cancelled
+// 	if ride.Status == "completed" || ride.Status == "cancelled" {
+// 		return response.BadRequest("Cannot cancel a completed or already cancelled ride")
+// 	}
+
+// 	if ride.Status == "started" {
+// 		return response.BadRequest("Cannot cancel an ongoing ride")
+// 	}
+
+// 	// Determine cancellation fee
+// 	var cancellationFee float64
+// 	cancelledBy := "rider"
+// 	if isDriver {
+// 		cancelledBy = "driver"
+// 	}
+
+// 	// Apply cancellation fee rules
+// 	if ride.Status == "accepted" || ride.Status == "arrived" {
+// 		if isRider {
+// 			cancellationFee = 2.0 // $2 cancellation fee for rider
+// 		}
+// 	}
+
+// 	// Update ride
+// 	ride.Status = "cancelled"
+// 	ride.CancellationReason = req.Reason
+// 	ride.CancelledBy = &cancelledBy
+// 	ride.CancelledAt = &time.Time{}
+// 	*ride.CancelledAt = time.Now()
+
+// 	if err := s.repo.UpdateRide(ctx, ride); err != nil {
+// 		return response.InternalServerError("Failed to cancel ride", err)
+// 	}
+
+// 	logger.Info("ride cancellation initiated",
+// 		"rideID", rideID,
+// 		"cancelledBy", cancelledBy,
+// 		"userID", userID,
+// 		"isRider", isRider,
+// 		"isDriver", isDriver,
+// 		"driverProfileID", driverProfileID,
+// 		"cancellationFee", cancellationFee,
+// 	)
+
+// 	// Process wallet transactions
+// 	if ride.WalletHoldID != nil {
+// 		if cancellationFee > 0 {
+// 			// Capture cancellation fee, release rest
+// 			if _, err := s.walletService.CaptureHold(ctx, ride.RiderID, walletdto.CaptureHoldRequest{
+// 				HoldID:      *ride.WalletHoldID,
+// 				Amount:      &cancellationFee,
+// 				Description: "Cancellation fee",
+// 			}); err != nil {
+// 				logger.Error("failed to capture cancellation fee", "error", err, "rideID", rideID)
+// 			} else {
+// 				logger.Info("cancellation fee captured",
+// 					"rideID", rideID,
+// 					"amount", cancellationFee,
+// 					"riderID", ride.RiderID,
+// 				)
+// 			}
+
+// 			// ✅ Credit driver with cancellation fee if assigned
+// 			if ride.DriverID != nil {
+// 				// If we already have driver profile from authorization, use it
+// 				// Otherwise, fetch it
+// 				var driver *models.DriverProfile
+// 				if driverProfile != nil && driverProfile.ID == *ride.DriverID {
+// 					driver = driverProfile
+// 				} else {
+// 					driver, err = s.driversRepo.FindDriverByID(ctx, *ride.DriverID)
+// 					if err != nil {
+// 						logger.Error("failed to fetch driver for cancellation fee credit",
+// 							"error", err,
+// 							"driverID", *ride.DriverID,
+// 							"rideID", rideID,
+// 						)
+// 					}
+// 				}
+
+// 				if driver != nil {
+// 					// ✅ Use driver's user ID for wallet credit
+// 					s.walletService.CreditWallet(
+// 						ctx,
+// 						driver.UserID, // ✅ Use user ID, not driver profile ID
+// 						cancellationFee,
+// 						"cancellation_fee",
+// 						rideID,
+// 						"Cancellation fee compensation",
+// 						nil,
+// 					)
+
+// 					logger.Info("cancellation fee credited to driver",
+// 						"rideID", rideID,
+// 						"driverID", driver.ID,
+// 						"driverUserID", driver.UserID,
+// 						"driverName", driver.User.Name,
+// 						"amount", cancellationFee,
+// 					)
+// 				}
+// 			}
+// 		} else {
+// 			// Release hold completely
+// 			if err := s.walletService.ReleaseHold(ctx, ride.RiderID, walletdto.ReleaseHoldRequest{
+// 				HoldID: *ride.WalletHoldID,
+// 			}); err != nil {
+// 				logger.Error("failed to release hold", "error", err, "rideID", rideID)
+// 			} else {
+// 				logger.Info("wallet hold released",
+// 					"rideID", rideID,
+// 					"riderID", ride.RiderID,
+// 				)
+// 			}
+// 		}
+// 	}
+
+// 	// ✅ CLEANUP: Update driver status and clear all caches if driver was assigned
+// 	if ride.DriverID != nil {
+// 		driverID := *ride.DriverID
+
+// 		// Update driver status to online
+// 		s.driversRepo.UpdateDriverStatus(ctx, driverID, "online")
+
+// 		// ✅ Clear driver busy flag from cache
+// 		busyKey := fmt.Sprintf("driver:busy:%s", driverID)
+// 		cache.Delete(ctx, busyKey)
+
+// 		// ✅ NEW: Clear active ride tracking cache
+// 		activeRideCacheKey := fmt.Sprintf("driver:active:ride:%s", driverID)
+// 		cache.Delete(ctx, activeRideCacheKey)
+
+// 		logger.Debug("driver caches cleared",
+// 			"driverID", driverID,
+// 			"rideID", rideID,
+// 			"clearedKeys", []string{busyKey, activeRideCacheKey},
+// 		)
+
+// 		// ✅ Get driver details for WebSocket notification
+// 		// If we already have driver profile from authorization, use it
+// 		// Otherwise, fetch it
+// 		var driver *models.DriverProfile
+// 		if driverProfile != nil && driverProfile.ID == driverID {
+// 			driver = driverProfile
+// 		} else {
+// 			driver, err = s.driversRepo.FindDriverByID(ctx, driverID)
+// 			if err != nil {
+// 				logger.Error("failed to fetch driver for cancellation notification",
+// 					"error", err,
+// 					"driverID", driverID,
+// 					"rideID", rideID,
+// 				)
+// 			}
+// 		}
+
+// 		if driver != nil {
+// 			// ✅ Notify driver via WebSocket using user ID (only if driver didn't cancel)
+// 			if !isDriver {
+// 				websocketutil.SendToUser(driver.UserID, websocket.TypeRideCancelled, map[string]interface{}{
+// 					"rideId":    rideID,
+// 					"message":   "Ride was cancelled by rider",
+// 					"reason":    req.Reason,
+// 					"timestamp": time.Now().UTC(),
+// 				})
+
+// 				logger.Info("driver notified of cancellation",
+// 					"rideID", rideID,
+// 					"driverID", driver.ID,
+// 					"driverUserID", driver.UserID,
+// 					"driverName", driver.User.Name,
+// 					"cancelledBy", "rider",
+// 				)
+// 			}
+// 		}
+// 	}
+
+// 	// ✅ Clear ride cache
+// 	rideCacheKey := fmt.Sprintf("ride:active:%s", rideID)
+// 	cache.Delete(ctx, rideCacheKey)
+
+// 	// ✅ Notify rider via WebSocket (ride.RiderID is user ID, so OK)
+// 	if isDriver {
+// 		websocketutil.SendToUser(ride.RiderID, websocket.TypeRideCancelled, map[string]interface{}{
+// 			"rideId":    rideID,
+// 			"message":   "Ride was cancelled by driver",
+// 			"reason":    req.Reason,
+// 			"timestamp": time.Now().UTC(),
+// 		})
+
+// 		logger.Info("rider notified of cancellation",
+// 			"rideID", rideID,
+// 			"riderID", ride.RiderID,
+// 			"cancelledBy", "driver",
+// 		)
+// 	}
+
+// 	logger.Info("ride cancelled successfully",
+// 		"rideID", rideID,
+// 		"cancelledBy", cancelledBy,
+// 		"userID", userID,
+// 		"cancellationFee", cancellationFee,
+// 		"driverID", ride.DriverID,
+// 		"status", "success",
+// 	)
+
+// 	return nil
+// }
 
 func min(a, b int) int {
 	if a < b {

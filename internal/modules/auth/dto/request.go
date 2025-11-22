@@ -14,7 +14,7 @@ var phoneRegex = regexp.MustCompile(`^\+?[1-9]\d{1,14}$`)
 type PhoneSignupRequest struct {
 	Name  string          `json:"name" binding:"required,min=2,max=255"`
 	Phone string          `json:"phone" binding:"required"`
-	Role  models.UserRole `json:"role" binding:"required,oneof=rider driver"`
+	Role  models.UserRole `json:"role" binding:"required,oneof=rider driver service_provider"`
 }
 
 func (r *PhoneSignupRequest) Validate() error {
@@ -30,16 +30,16 @@ func (r *PhoneSignupRequest) Validate() error {
 	if !phoneRegex.MatchString(r.Phone) {
 		return errors.New("invalid phone number format")
 	}
-	if r.Role != models.RoleRider && r.Role != models.RoleDriver {
-		return errors.New("role must be either 'rider' or 'driver'")
+	if r.Role != models.RoleRider && r.Role != models.RoleDriver && r.Role != models.RoleServiceProvider {
+		return errors.New("role must be either 'rider' or 'driver' or 'service_provider'")
 	}
 	return nil
 }
 
 // PhoneLoginRequest for rider/driver login
 type PhoneLoginRequest struct {
-	Phone string          `json:"phone" binding:"required"`
-	Role  models.UserRole `json:"role" binding:"required,oneof=rider driver"`
+	Phone string `json:"phone" binding:"required"`
+	// Role  models.UserRole `json:"role" binding:"required,oneof=rider driver"`
 }
 
 func (r *PhoneLoginRequest) Validate() error {
@@ -49,9 +49,9 @@ func (r *PhoneLoginRequest) Validate() error {
 	if !phoneRegex.MatchString(r.Phone) {
 		return errors.New("invalid phone number format")
 	}
-	if r.Role != models.RoleRider && r.Role != models.RoleDriver {
-		return errors.New("role must be either 'rider' or 'driver'")
-	}
+	// if r.Role != models.RoleRider && r.Role != models.RoleDriver {
+	// 	return errors.New("role must be either 'rider' or 'driver'")
+	// }
 	return nil
 }
 

@@ -111,15 +111,8 @@ definitions:
     properties:
       phone:
         type: string
-      role:
-        allOf:
-        - $ref: '#/definitions/github_com_umar5678_go-backend_internal_models.UserRole'
-        enum:
-        - rider
-        - driver
     required:
     - phone
-    - role
     type: object
   github_com_umar5678_go-backend_internal_modules_auth_dto.PhoneSignupRequest:
     properties:
@@ -135,6 +128,7 @@ definitions:
         enum:
         - rider
         - driver
+        - service_provider
     required:
     - name
     - phone
@@ -1137,6 +1131,13 @@ definitions:
     - pickupLon
     - vehicleTypeId
     type: object
+  github_com_umar5678_go-backend_internal_modules_rides_dto.LocationDTO:
+    properties:
+      latitude:
+        type: number
+      longitude:
+        type: number
+    type: object
   github_com_umar5678_go-backend_internal_modules_rides_dto.RejectRideRequest:
     properties:
       reason:
@@ -1188,6 +1189,8 @@ definitions:
         $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_auth_dto.UserResponse'
       driverId:
         type: string
+      driverLocation:
+        $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_rides_dto.LocationDTO'
       dropoffAddress:
         type: string
       dropoffLat:
@@ -1308,31 +1311,6 @@ definitions:
         type: number
       searchLocation:
         $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_tracking_dto.LocationResponse'
-    type: object
-  github_com_umar5678_go-backend_internal_modules_tracking_dto.UpdateLocationRequest:
-    properties:
-      accuracy:
-        minimum: 0
-        type: number
-      heading:
-        maximum: 360
-        minimum: 0
-        type: integer
-      latitude:
-        maximum: 90
-        minimum: -90
-        type: number
-      longitude:
-        maximum: 180
-        minimum: -180
-        type: number
-      speed:
-        maximum: 300
-        minimum: 0
-        type: number
-    required:
-    - latitude
-    - longitude
     type: object
   github_com_umar5678_go-backend_internal_modules_vehicles_dto.VehicleTypeResponse:
     properties:
@@ -1546,7 +1524,7 @@ definitions:
     type: object
 info:
   contact: {}
-  description: Production-ready Go backend API
+  description: Production-grade Go backend API
   title: supr booking server in go
   version: "1.0"
 paths:
@@ -3119,29 +3097,6 @@ paths:
                   $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_tracking_dto.LocationResponse'
               type: object
       summary: Get driver's current location
-      tags:
-      - tracking
-  /tracking/location:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Location data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_tracking_dto.UpdateLocationRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response'
-      security:
-      - BearerAuth: []
-      summary: Update driver location (called by driver app)
       tags:
       - tracking
   /tracking/nearby:

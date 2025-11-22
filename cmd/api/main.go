@@ -20,7 +20,9 @@ import (
 	"github.com/umar5678/go-backend/internal/middleware"
 	"github.com/umar5678/go-backend/internal/modules/auth"
 	"github.com/umar5678/go-backend/internal/modules/drivers"
+	_ "github.com/umar5678/go-backend/internal/modules/homeservices/dto" // Alias for clarity
 	"github.com/umar5678/go-backend/internal/modules/pricing"
+	_ "github.com/umar5678/go-backend/internal/modules/ratings/dto"
 	"github.com/umar5678/go-backend/internal/modules/riders"
 	"github.com/umar5678/go-backend/internal/modules/rides"
 	todos "github.com/umar5678/go-backend/internal/modules/todo"
