@@ -70,3 +70,29 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 		c.Abort()
 	}
 }
+
+// OptionalAuth doesn't block the request but sets user info if token is valid
+func OptionalAuth(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.Next()
+			return
+		}
+
+		token := parts[1]
+		claims, err := jwt.ValidateToken(token, cfg.JWT.Secret)
+		if err == nil {
+			c.Set("userID", claims.UserID)
+			c.Set("userRole", claims.Role)
+		}
+
+		c.Next()
+	}
+}

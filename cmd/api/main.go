@@ -20,6 +20,7 @@ import (
 	"github.com/umar5678/go-backend/internal/middleware"
 	"github.com/umar5678/go-backend/internal/modules/auth"
 	"github.com/umar5678/go-backend/internal/modules/drivers"
+	"github.com/umar5678/go-backend/internal/modules/homeservices"
 	_ "github.com/umar5678/go-backend/internal/modules/homeservices/dto" // Alias for clarity
 	"github.com/umar5678/go-backend/internal/modules/pricing"
 	_ "github.com/umar5678/go-backend/internal/modules/ratings/dto"
@@ -230,6 +231,18 @@ func main() {
 
 		// WebSocket routes
 		websocket.RegisterRoutes(router, cfg, wsServer)
+
+		// Admin module
+		// adminRepo := admin.NewRepository(db)
+		// adminService := admin.NewService(adminRepo, spRepo)
+		// adminHandler := admin.NewHandler(adminService)
+		// admin.RegisterRoutes(v1, adminHandler, authMiddleware)
+
+		// Home Services module
+		homeServicesRepo := homeservices.NewRepository(db)
+		homeServicesService := homeservices.NewService(homeServicesRepo, walletService, cfg)
+		homeServicesHandler := homeservices.NewHandler(homeServicesService)
+		homeservices.RegisterRoutes(v1, homeServicesHandler, authMiddleware)
 
 		// Add other modules here...
 	}

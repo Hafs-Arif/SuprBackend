@@ -1,4 +1,4 @@
-package homeservicedto
+package homeServiceDto
 
 import (
 	"time"
@@ -247,36 +247,40 @@ type AddOnResponse struct {
 
 // OrderResponse for order details
 type OrderResponse struct {
-	ID          string               `json:"id"`
-	Code        string               `json:"code"`
-	UserID      string               `json:"userId"`
-	ProviderID  *string              `json:"providerId,omitempty"`
-	Status      string               `json:"status"`
-	Address     string               `json:"address"`
-	ServiceDate time.Time            `json:"serviceDate"`
-	Frequency   string               `json:"frequency"`
-	Subtotal    float64              `json:"subtotal"`
-	Discount    float64              `json:"discount"`
-	SurgeFee    float64              `json:"surgeFee"`
-	PlatformFee float64              `json:"platformFee"`
-	Total       float64              `json:"total"`
-	CouponCode  *string              `json:"couponCode,omitempty"`
-	CreatedAt   time.Time            `json:"createdAt"`
-	AcceptedAt  *time.Time           `json:"acceptedAt,omitempty"`
-	CompletedAt *time.Time           `json:"completedAt,omitempty"`
-	Items       []OrderItemResponse  `json:"items,omitempty"`
-	AddOns      []OrderAddOnResponse `json:"addOns,omitempty"`
-	Provider    *ProviderResponse    `json:"provider,omitempty"`
+	ID             string               `json:"id"`
+	Code           string               `json:"code"`
+	UserID         string               `json:"userId"`
+	ProviderID     *string              `json:"providerId,omitempty"`
+	Status         string               `json:"status"`
+	Address        string               `json:"address"`
+	ServiceDate    time.Time            `json:"serviceDate"`
+	Frequency      string               `json:"frequency"`
+	QuantityOfPros int                  `json:"quantityOfPros"`
+	HoursOfService float64              `json:"hoursOfService"`
+	Subtotal       float64              `json:"subtotal"`
+	Discount       float64              `json:"discount"`
+	SurgeFee       float64              `json:"surgeFee"`
+	PlatformFee    float64              `json:"platformFee"`
+	Total          float64              `json:"total"`
+	CouponCode     *string              `json:"couponCode,omitempty"`
+	CreatedAt      time.Time            `json:"createdAt"`
+	AcceptedAt     *time.Time           `json:"acceptedAt,omitempty"`
+	CompletedAt    *time.Time           `json:"completedAt,omitempty"`
+	Items          []OrderItemResponse  `json:"items,omitempty"`
+	AddOns         []OrderAddOnResponse `json:"addOns,omitempty"`
+	Provider       *ProviderResponse    `json:"provider,omitempty"`
 }
 
 type OrderListResponse struct {
-	ID          string    `json:"id"`
-	Code        string    `json:"code"`
-	Status      string    `json:"status"`
-	Address     string    `json:"address"`
-	ServiceDate time.Time `json:"serviceDate"`
-	Total       float64   `json:"total"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID             string    `json:"id"`
+	Code           string    `json:"code"`
+	Status         string    `json:"status"`
+	Address        string    `json:"address"`
+	ServiceDate    time.Time `json:"serviceDate"`
+	QuantityOfPros int       `json:"quantityOfPros"` //  NEW
+	HoursOfService float64   `json:"hoursOfService"` //  NEW
+	Total          float64   `json:"total"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type OrderItemResponse struct {
@@ -340,23 +344,25 @@ func ToCategoryWithTabsResponse(cat *models.ServiceCategory) *CategoryWithTabsRe
 }
 func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
 	resp := &OrderResponse{
-		ID:          order.ID,
-		Code:        order.Code,
-		UserID:      order.UserID,
-		ProviderID:  order.ProviderID,
-		Status:      order.Status,
-		Address:     order.Address,
-		ServiceDate: order.ServiceDate,
-		Frequency:   order.Frequency,
-		Subtotal:    order.Subtotal,
-		Discount:    order.Discount,
-		SurgeFee:    order.SurgeFee,
-		PlatformFee: order.PlatformFee,
-		Total:       order.Total,
-		CouponCode:  order.CouponCode,
-		CreatedAt:   order.CreatedAt,
-		AcceptedAt:  order.AcceptedAt,
-		CompletedAt: order.CompletedAt,
+		ID:             order.ID,
+		Code:           order.Code,
+		UserID:         order.UserID,
+		ProviderID:     order.ProviderID,
+		Status:         order.Status,
+		Address:        order.Address,
+		ServiceDate:    order.ServiceDate,
+		Frequency:      order.Frequency,
+		QuantityOfPros: order.QuantityOfPros, // NEW
+		HoursOfService: order.HoursOfService, // NEW
+		Subtotal:       order.Subtotal,
+		Discount:       order.Discount,
+		SurgeFee:       order.SurgeFee,
+		PlatformFee:    order.PlatformFee,
+		Total:          order.Total,
+		CouponCode:     order.CouponCode,
+		CreatedAt:      order.CreatedAt,
+		AcceptedAt:     order.AcceptedAt,
+		CompletedAt:    order.CompletedAt,
 	}
 
 	if len(order.Items) > 0 {
@@ -463,13 +469,15 @@ func ToOrderResponse(order *models.ServiceOrder) *OrderResponse {
 
 func ToOrderListResponse(order *models.ServiceOrder) *OrderListResponse {
 	return &OrderListResponse{
-		ID:          order.ID,
-		Code:        order.Code,
-		Status:      order.Status,
-		Address:     order.Address,
-		ServiceDate: order.ServiceDate,
-		Total:       order.Total,
-		CreatedAt:   order.CreatedAt,
+		ID:             order.ID,
+		Code:           order.Code,
+		Status:         order.Status,
+		Address:        order.Address,
+		ServiceDate:    order.ServiceDate,
+		QuantityOfPros: order.QuantityOfPros, // NEW
+		HoursOfService: order.HoursOfService, // NEW
+		Total:          order.Total,
+		CreatedAt:      order.CreatedAt,
 	}
 }
 

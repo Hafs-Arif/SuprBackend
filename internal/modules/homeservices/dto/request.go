@@ -1,4 +1,4 @@
-package homeservicedto
+package homeServiceDto
 
 import (
 	"errors"
@@ -7,15 +7,17 @@ import (
 
 // CreateOrderRequest represents a customer's service booking request
 type CreateOrderRequest struct {
-	Items       []CreateOrderItemRequest `json:"items" binding:"required,min=1,dive"`
-	AddOnIDs    []uint                   `json:"addOnIds" binding:"omitempty"`
-	Address     string                   `json:"address" binding:"required,min=5,max=500"`
-	Latitude    float64                  `json:"latitude" binding:"required,latitude"`
-	Longitude   float64                  `json:"longitude" binding:"required,longitude"`
-	ServiceDate string                   `json:"serviceDate" binding:"required"` // RFC3339 format
-	Frequency   string                   `json:"frequency" binding:"omitempty,oneof=once daily weekly monthly"`
-	Notes       *string                  `json:"notes" binding:"omitempty,max=500"`
-	CouponCode  *string                  `json:"couponCode" binding:"omitempty,max=50"`
+	Items          []CreateOrderItemRequest `json:"items" binding:"required,min=1,dive"`
+	AddOnIDs       []uint                   `json:"addOnIds" binding:"omitempty"`
+	Address        string                   `json:"address" binding:"required,min=5,max=500"`
+	Latitude       float64                  `json:"latitude" binding:"required,latitude"`
+	Longitude      float64                  `json:"longitude" binding:"required,longitude"`
+	ServiceDate    string                   `json:"serviceDate" binding:"required"` // RFC3339 format
+	Frequency      string                   `json:"frequency" binding:"omitempty,oneof=once daily weekly monthly"`
+	QuantityOfPros int                      `json:"quantityOfPros" binding:"required,min=1,max=10"`   // ✅ NEW: Number of professionals needed
+	HoursOfService float64                  `json:"hoursOfService" binding:"required,min=0.5,max=24"` // ✅ NEW: Hours of service required
+	Notes          *string                  `json:"notes" binding:"omitempty,max=500"`
+	CouponCode     *string                  `json:"couponCode" binding:"omitempty,max=50"`
 }
 
 type CreateOrderItemRequest struct {
@@ -33,6 +35,28 @@ func (r *CreateOrderRequest) Validate() error {
 	if len(r.Items) == 0 {
 		return errors.New("at least one service item is required")
 	}
+
+	// Validate quantity of professionals
+	if r.QuantityOfPros < 1 {
+		return errors.New("at least 1 professional is required")
+	}
+	if r.QuantityOfPros > 10 {
+		return errors.New("maximum 10 professionals allowed per order")
+	}
+
+	//  Validate hours of service
+	if r.HoursOfService < 0.5 {
+		return errors.New("minimum service duration is 0.5 hours")
+	}
+	if r.HoursOfService > 24 {
+		return errors.New("maximum service duration is 24 hours")
+	}
+
+	//  Validate hours increment (must be in 0.5 hour increments)
+	if r.HoursOfService != float64(int(r.HoursOfService*2))/2 {
+		return errors.New("hours must be in 0.5 hour increments (e.g., 1.5, 2, 2.5)")
+	}
+
 	if r.Frequency == "" {
 		r.Frequency = "once"
 	}
@@ -42,6 +66,12 @@ func (r *CreateOrderRequest) Validate() error {
 func (r *CreateOrderRequest) SetDefaults() {
 	if r.Frequency == "" {
 		r.Frequency = "once"
+	}
+	if r.QuantityOfPros == 0 {
+		r.QuantityOfPros = 1 // Default to 1 professional
+	}
+	if r.HoursOfService == 0 {
+		r.HoursOfService = 1.0 // Default to 1 hour
 	}
 }
 

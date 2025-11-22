@@ -172,30 +172,32 @@ func (ServiceProvider) TableName() string { return "service_providers" }
 
 // ServiceOrder represents a booking
 type ServiceOrder struct {
-	ID           string     `gorm:"type:uuid;primaryKey" json:"id"`
-	Code         string     `gorm:"type:varchar(50);uniqueIndex;not null" json:"code"`
-	UserID       string     `gorm:"type:uuid;not null;index" json:"userId"`
-	ProviderID   *string    `gorm:"type:uuid;index" json:"providerId,omitempty"`
-	Status       string     `gorm:"type:varchar(50);not null;index" json:"status"` // pending, searching, accepted, in_progress, completed, cancelled
-	Address      string     `gorm:"type:text;not null" json:"address"`
-	Latitude     float64    `gorm:"type:decimal(10,8);not null" json:"latitude"`
-	Longitude    float64    `gorm:"type:decimal(11,8);not null" json:"longitude"`
-	ServiceDate  time.Time  `gorm:"not null" json:"serviceDate"`
-	Frequency    string     `gorm:"type:varchar(50);default:'once'" json:"frequency"` // once, daily, weekly, monthly
-	Subtotal     float64    `gorm:"type:decimal(10,2);not null" json:"subtotal"`
-	Discount     float64    `gorm:"type:decimal(10,2);default:0" json:"discount"`
-	SurgeFee     float64    `gorm:"type:decimal(10,2);default:0" json:"surgeFee"`
-	PlatformFee  float64    `gorm:"type:decimal(10,2);default:0" json:"platformFee"`
-	Total        float64    `gorm:"type:decimal(10,2);not null" json:"total"`
-	CouponCode   *string    `gorm:"type:varchar(50)" json:"couponCode,omitempty"`
-	Notes        *string    `gorm:"type:text" json:"notes,omitempty"`
-	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"createdAt"`
-	AcceptedAt   *time.Time `json:"acceptedAt,omitempty"`
-	StartedAt    *time.Time `json:"startedAt,omitempty"`
-	CompletedAt  *time.Time `json:"completedAt,omitempty"`
-	CancelledAt  *time.Time `json:"cancelledAt,omitempty"`
-	WalletHold   float64    `gorm:"type:decimal(10,2);default:0" json:"walletHold"`
-	WalletHoldID *string    `gorm:"type:uuid" json:"walletHoldId,omitempty"`
+	ID             string     `gorm:"type:uuid;primaryKey" json:"id"`
+	Code           string     `gorm:"type:varchar(50);uniqueIndex;not null" json:"code"`
+	UserID         string     `gorm:"type:uuid;not null;index" json:"userId"`
+	ProviderID     *string    `gorm:"type:uuid;index" json:"providerId,omitempty"`
+	Status         string     `gorm:"type:varchar(50);not null;index" json:"status"` // pending, searching, accepted, in_progress, completed, cancelled
+	Address        string     `gorm:"type:text;not null" json:"address"`
+	Latitude       float64    `gorm:"type:decimal(10,8);not null" json:"latitude"`
+	Longitude      float64    `gorm:"type:decimal(11,8);not null" json:"longitude"`
+	ServiceDate    time.Time  `gorm:"not null" json:"serviceDate"`
+	Frequency      string     `gorm:"type:varchar(50);default:'once'" json:"frequency"`      // once, daily, weekly, monthly
+	QuantityOfPros int        `gorm:"type:integer;not null;default:1" json:"quantityOfPros"` //  NEW: Number of professionals
+	HoursOfService float64    `gorm:"type:decimal(5,2);not null;default:1.0" json:"hoursOfService"`
+	Subtotal       float64    `gorm:"type:decimal(10,2);not null" json:"subtotal"`
+	Discount       float64    `gorm:"type:decimal(10,2);default:0" json:"discount"`
+	SurgeFee       float64    `gorm:"type:decimal(10,2);default:0" json:"surgeFee"`
+	PlatformFee    float64    `gorm:"type:decimal(10,2);default:0" json:"platformFee"`
+	Total          float64    `gorm:"type:decimal(10,2);not null" json:"total"`
+	CouponCode     *string    `gorm:"type:varchar(50)" json:"couponCode,omitempty"`
+	Notes          *string    `gorm:"type:text" json:"notes,omitempty"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"createdAt"`
+	AcceptedAt     *time.Time `json:"acceptedAt,omitempty"`
+	StartedAt      *time.Time `json:"startedAt,omitempty"`
+	CompletedAt    *time.Time `json:"completedAt,omitempty"`
+	CancelledAt    *time.Time `json:"cancelledAt,omitempty"`
+	WalletHold     float64    `gorm:"type:decimal(10,2);default:0" json:"walletHold"`
+	WalletHoldID   *string    `gorm:"type:uuid" json:"walletHoldId,omitempty"`
 
 	// Relations
 	Items    []OrderItem      `gorm:"foreignKey:OrderID" json:"items,omitempty"`

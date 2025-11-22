@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/umar5678/go-backend/internal/models"
-	homeservicedto "github.com/umar5678/go-backend/internal/modules/homeservices/dto"
+	homeServiceDto "github.com/umar5678/go-backend/internal/modules/homeservices/dto"
 )
 
 type Repository interface {
@@ -16,7 +16,7 @@ type Repository interface {
 	GetCategoryByID(ctx context.Context, id uint) (*models.ServiceCategory, error)
 	GetCategoryWithTabs(ctx context.Context, id uint) (*models.ServiceCategory, error)
 	CreateCategory(ctx context.Context, category *models.ServiceCategory) error
-	ListServices(ctx context.Context, query homeservicedto.ListServicesQuery) ([]*models.Service, int64, error)
+	ListServices(ctx context.Context, query homeServiceDto.ListServicesQuery) ([]*models.Service, int64, error)
 	GetServiceByID(ctx context.Context, id uint) (*models.Service, error)
 	GetServiceWithOptions(ctx context.Context, id uint) (*models.Service, error)
 	GetServicesByIDs(ctx context.Context, ids []uint) ([]*models.Service, error)
@@ -35,8 +35,8 @@ type Repository interface {
 	CreateOrder(ctx context.Context, order *models.ServiceOrder) error
 	GetOrderByID(ctx context.Context, id string) (*models.ServiceOrder, error)
 	GetOrderByIDWithDetails(ctx context.Context, id string) (*models.ServiceOrder, error)
-	ListUserOrders(ctx context.Context, userID string, query homeservicedto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error)
-	ListProviderOrders(ctx context.Context, providerID string, query homeservicedto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error)
+	ListUserOrders(ctx context.Context, userID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error)
+	ListProviderOrders(ctx context.Context, providerID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error)
 	UpdateOrderStatus(ctx context.Context, orderID, status string) error
 	AssignProviderToOrder(ctx context.Context, providerID, orderID string) error
 
@@ -120,7 +120,7 @@ func (r *repository) CreateTab(ctx context.Context, tab *models.ServiceTab) erro
 
 // ==================== SERVICES ====================
 
-func (r *repository) ListServices(ctx context.Context, query homeservicedto.ListServicesQuery) ([]*models.Service, int64, error) {
+func (r *repository) ListServices(ctx context.Context, query homeServiceDto.ListServicesQuery) ([]*models.Service, int64, error) {
 	var services []*models.Service
 	var total int64
 
@@ -287,7 +287,7 @@ func (r *repository) GetOrderByIDWithDetails(ctx context.Context, id string) (*m
 	return &order, err
 }
 
-func (r *repository) ListUserOrders(ctx context.Context, userID string, query homeservicedto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
+func (r *repository) ListUserOrders(ctx context.Context, userID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
 	var orders []*models.ServiceOrder
 	var total int64
 
@@ -313,7 +313,7 @@ func (r *repository) ListUserOrders(ctx context.Context, userID string, query ho
 	return orders, total, err
 }
 
-func (r *repository) ListProviderOrders(ctx context.Context, providerID string, query homeservicedto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
+func (r *repository) ListProviderOrders(ctx context.Context, providerID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
 	var orders []*models.ServiceOrder
 	var total int64
 
