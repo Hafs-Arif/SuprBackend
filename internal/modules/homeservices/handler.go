@@ -150,7 +150,7 @@ func (h *Handler) ListAddOns(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body homeservicedto.CreateOrderRequest true "Order details"
+// @Param request bodyhomeservicedto.CreateOrderRequest true "Order details"
 // @Success 201 {object} response.Response{data=homeservicedto.OrderResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
@@ -402,7 +402,7 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body homeservicedto.CreateCategoryRequest true "Category details"
+// @Param request bodyhomeservicedto.CreateCategoryRequest true "Category details"
 // @Success 201 {object} response.Response{data=homeservicedto.CategoryWithTabsResponse}
 // @Router /services/admin/categories [post]
 func (h *Handler) CreateCategory(c *gin.Context) {
@@ -428,7 +428,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body homeservicedto.CreateTabRequest true "Tab details"
+// @Param request bodyhomeservicedto.CreateTabRequest true "Tab details"
 // @Success 201 {object} response.Response{data=homeservicedto.ServiceTabResponse}
 // @Router /services/admin/tabs [post]
 func (h *Handler) CreateTab(c *gin.Context) {
@@ -454,7 +454,7 @@ func (h *Handler) CreateTab(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body homeservicedto.CreateServiceRequest true "Service details"
+// @Param request bodyhomeservicedto.CreateServiceRequest true "Service details"
 // @Success 201 {object} response.Response{data=homeservicedto.ServiceResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
@@ -483,7 +483,7 @@ func (h *Handler) CreateService(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body homeservicedto.CreateAddOnRequest true "Add-on details"
+// @Param request bodyhomeservicedto.CreateAddOnRequest true "Add-on details"
 // @Success 201 {object} response.Response{data=homeservicedto.AddOnResponse}
 // @Router /services/admin/addons [post]
 func (h *Handler) CreateAddOn(c *gin.Context) {
@@ -510,7 +510,7 @@ func (h *Handler) CreateAddOn(c *gin.Context) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path int true "Service ID"
-// @Param request body homeservicedto.UpdateServiceRequest true "Update details"
+// @Param request bodyhomeservicedto.UpdateServiceRequest true "Update details"
 // @Success 200 {object} response.Response{data=homeservicedto.ServiceResponse}
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
