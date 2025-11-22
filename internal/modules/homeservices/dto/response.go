@@ -317,7 +317,7 @@ func ToCategoryWithTabsResponse(cat *models.ServiceCategory) *CategoryWithTabsRe
 		Description: cat.Description,
 		IconURL:     cat.IconURL,
 		BannerImage: cat.BannerImage,
-		Highlights:  cat.Highlights,
+		Highlights:  []string(cat.Highlights),
 		IsActive:    cat.IsActive,
 		SortOrder:   cat.SortOrder,
 		CreatedAt:   cat.CreatedAt,

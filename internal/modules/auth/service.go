@@ -180,18 +180,35 @@ func (s *service) EmailSignup(ctx context.Context, req authdto.EmailSignupReques
 		return nil, response.InternalServerError("Failed to process password", err)
 	}
 
+	// ✅ Set appropriate initial status based on role
+	initialStatus := models.StatusActive
+	if req.Role != models.RoleAdmin {
+		// Service providers need approval
+		initialStatus = models.StatusPendingApproval
+	}
+
 	// Create user
 	user := &models.User{
 		Name:     req.Name,
 		Email:    &req.Email,
 		Password: &hashedPassword,
 		Role:     req.Role,
-		Status:   models.StatusActive,
+		Status:   initialStatus,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		logger.Error("failed to create user", "error", err, "email", req.Email)
 		return nil, response.InternalServerError("Failed to create account", err)
+	}
+
+	// ✅ Create service provider profile if applicable
+	if user.IsServiceProvider() {
+		serviceCategory := s.mapRoleToCategory(user.Role)
+
+		if _, err := s.serviceProviderService.CreateProfile(ctx, user.ID, serviceCategory); err != nil {
+			logger.Error("failed to create service provider profile", "error", err, "userId", user.ID)
+			// Don't fail signup if profile creation fails
+		}
 	}
 
 	// Create wallet for user (if needed for this role)
@@ -212,6 +229,57 @@ func (s *service) EmailSignup(ctx context.Context, req authdto.EmailSignupReques
 
 	return authResp, nil
 }
+
+// // EmailSignup handles email-based signup for other roles
+// func (s *service) EmailSignup(ctx context.Context, req authdto.EmailSignupRequest) (*authdto.AuthResponse, error) {
+// 	if err := req.Validate(); err != nil {
+// 		return nil, response.BadRequest(err.Error())
+// 	}
+
+// 	// Check if email already exists
+// 	_, err := s.repo.FindByEmail(ctx, req.Email)
+// 	if err == nil {
+// 		return nil, response.ConflictError("Email already registered")
+// 	}
+
+// 	// Hash password
+// 	hashedPassword, err := password.Hash(req.Password)
+// 	if err != nil {
+// 		return nil, response.InternalServerError("Failed to process password", err)
+// 	}
+
+// 	// Create user
+// 	user := &models.User{
+// 		Name:     req.Name,
+// 		Email:    &req.Email,
+// 		Password: &hashedPassword,
+// 		Role:     req.Role,
+// 		Status:   models.StatusActive,
+// 	}
+
+// 	if err := s.repo.Create(ctx, user); err != nil {
+// 		logger.Error("failed to create user", "error", err, "email", req.Email)
+// 		return nil, response.InternalServerError("Failed to create account", err)
+// 	}
+
+// 	// Create wallet for user (if needed for this role)
+// 	if err := s.createUserWallet(ctx, user); err != nil {
+// 		logger.Error("failed to create wallet", "error", err, "userId", user.ID)
+// 	}
+
+// 	// Update last login
+// 	s.repo.UpdateLastLogin(ctx, user.ID)
+
+// 	// Generate tokens
+// 	authResp, err := s.generateAuthResponse(user)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	logger.Info("email signup successful", "userId", user.ID, "email", req.Email, "role", req.Role)
+
+// 	return authResp, nil
+// }
 
 // EmailLogin handles email-based login
 func (s *service) EmailLogin(ctx context.Context, req authdto.EmailLoginRequest) (*authdto.AuthResponse, error) {
@@ -253,6 +321,20 @@ func (s *service) EmailLogin(ctx context.Context, req authdto.EmailLoginRequest)
 	logger.Info("email login successful", "userId", user.ID, "email", req.Email)
 
 	return authResp, nil
+}
+
+// ✅ Helper: Map user role to service category
+func (s *service) mapRoleToCategory(role models.UserRole) string {
+	switch role {
+	case models.RoleDeliveryPerson:
+		return "delivery"
+	case models.RoleHandyman:
+		return "handyman"
+	case models.RoleServiceProvider:
+		return "general_service"
+	default:
+		return "general"
+	}
 }
 
 // RefreshToken generates new tokens
@@ -397,7 +479,7 @@ func (s *service) generateAuthResponse(user *models.User) (*authdto.AuthResponse
 	}, nil
 }
 
-// Helper: Create wallet for new user
+// ✅ Helper: Update wallet creation logic
 func (s *service) createUserWallet(ctx context.Context, user *models.User) error {
 	var walletType models.WalletType
 	var initialBalance float64
@@ -408,9 +490,12 @@ func (s *service) createUserWallet(ctx context.Context, user *models.User) error
 		initialBalance = 1000.00 // Give riders $1000 fake money
 	case models.RoleDriver:
 		walletType = models.WalletTypeDriver
-		initialBalance = 0.00 // Drivers start with $0
+		initialBalance = 0.00
+	case models.RoleServiceProvider, models.RoleHandyman, models.RoleDeliveryPerson:
+		walletType = models.WalletTypeServiceProvider
+		initialBalance = 0.00
 	default:
-		// Other roles don't need wallets yet
+		// Admins don't need wallets
 		return nil
 	}
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -28,16 +29,16 @@ func (j *JSONBMap) Scan(value interface{}) error {
 
 // ServiceCategory represents main categories (Women's Salon, Men's Salon, etc.)
 type ServiceCategory struct {
-	ID          uint      `gorm:"primaryKey" json:"id"`
-	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
-	Description string    `gorm:"type:text" json:"description"`
-	IconURL     string    `gorm:"type:varchar(500)" json:"iconUrl"`
-	BannerImage string    `gorm:"type:varchar(500)" json:"bannerImage"`
-	IsActive    bool      `gorm:"default:true" json:"isActive"`
-	SortOrder   int       `gorm:"default:0" json:"sortOrder"`
-	Highlights  []string  `gorm:"type:text[];default:'{}'" json:"highlights"` // PostgreSQL array
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"createdAt"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updatedAt"`
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	Name        string         `gorm:"type:varchar(255);not null" json:"name"`
+	Description string         `gorm:"type:text" json:"description"`
+	IconURL     string         `gorm:"type:varchar(500)" json:"iconUrl"`
+	BannerImage string         `gorm:"type:varchar(500)" json:"bannerImage"`
+	IsActive    bool           `gorm:"default:true" json:"isActive"`
+	SortOrder   int            `gorm:"default:0" json:"sortOrder"`
+	Highlights  pq.StringArray `gorm:"type:text[];default:'{}'" json:"highlights"` // PostgreSQL array
+	CreatedAt   time.Time      `gorm:"autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime" json:"updatedAt"`
 
 	// Relations
 	Tabs     []ServiceTab   `gorm:"foreignKey:CategoryID" json:"tabs,omitempty"`

@@ -30,7 +30,7 @@ type TransactionResponse struct {
 	BalanceAfter  float64                  `json:"balanceAfter"`
 	Status        models.TransactionStatus `json:"status"`
 	ReferenceType *string                  `json:"referenceType,omitempty"`
-	ReferenceID   *string                  `json:"referenceId,omitempty"`
+	ReferenceID   *string                  `json:"referenceId,omitempty"` // now varchar instead of uuid
 	Description   *string                  `json:"description,omitempty"`
 	Metadata      map[string]interface{}   `json:"metadata,omitempty"`
 	ProcessedAt   *time.Time               `json:"processedAt,omitempty"`

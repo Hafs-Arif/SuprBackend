@@ -8,9 +8,10 @@ import (
 type WalletType string
 
 const (
-	WalletTypeRider    WalletType = "rider"
-	WalletTypeDriver   WalletType = "driver"
-	WalletTypePlatform WalletType = "platform"
+	WalletTypeRider           WalletType = "rider"
+	WalletTypeDriver          WalletType = "driver"
+	WalletTypePlatform        WalletType = "platform"
+	WalletTypeServiceProvider WalletType = "service_provider" // ✅ For handyman, delivery_person, service_provider
 )
 
 // TransactionType represents the type of transaction
@@ -74,7 +75,7 @@ type WalletTransaction struct {
 	BalanceAfter  float64                `gorm:"type:decimal(12,2);not null" json:"balanceAfter"`
 	Status        TransactionStatus      `gorm:"type:transaction_status;not null;default:'pending'" json:"status"`
 	ReferenceType *string                `gorm:"type:varchar(50)" json:"referenceType,omitempty"`
-	ReferenceID   *string                `gorm:"type:uuid" json:"referenceId,omitempty"`
+	ReferenceID   *string                `gorm:"type:varchar(50);not null" json:"referenceId"`
 	Description   *string                `gorm:"type:text" json:"description,omitempty"`
 	Metadata      map[string]interface{} `gorm:"type:jsonb" json:"metadata,omitempty"`
 	ProcessedAt   *time.Time             `json:"processedAt,omitempty"`

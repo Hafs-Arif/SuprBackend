@@ -25,7 +25,8 @@ const (
 	StatusActive              UserStatus = "active"
 	StatusSuspended           UserStatus = "suspended"
 	StatusBanned              UserStatus = "banned"
-	StatusPendingVerification UserStatus = "pending_verification"
+	StatusPendingVerification UserStatus = "pending_verification" // ADDED for Drivers
+	StatusPendingApproval     UserStatus = "pending_approval"     // ADDED for service providers
 )
 
 // User model
@@ -50,12 +51,27 @@ func (User) TableName() string {
 
 // IsPhoneUser checks if user uses phone authentication
 func (u *User) IsPhoneUser() bool {
-	return u.Phone != nil && (u.Role == RoleRider || u.Role == RoleDriver)
+	return u.Phone != nil &&
+		(u.Role == RoleRider ||
+			u.Role == RoleDriver)
 }
 
 // IsEmailUser checks if user uses email authentication
 func (u *User) IsEmailUser() bool {
-	return u.Email != nil && u.Password != nil
+	return u.Email != nil &&
+		u.Password != nil
+}
+
+// IsServiceProvider checks if user is any type of service provider
+func (u *User) IsServiceProvider() bool {
+	return u.Role == RoleServiceProvider ||
+		u.Role == RoleHandyman ||
+		u.Role == RoleDeliveryPerson
+}
+
+// IsAdmin checks if user has admin privileges
+func (u *User) IsAdmin() bool {
+	return u.Role == RoleAdmin
 }
 
 // GetIdentifier returns phone or email for identification
