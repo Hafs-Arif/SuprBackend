@@ -40,8 +40,8 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 
 		// --- Admin Protected Routes ---
 		admin := services.Group("/admin")
-		admin.Use(authMiddleware)
-		admin.Use(middleware.RequireRole("admin"))
+		// admin.Use(authMiddleware)
+		// admin.Use(middleware.RequireRole("admin"))
 		{
 			admin.POST("/categories", handler.CreateCategory)
 			admin.POST("/tabs", handler.CreateTab)

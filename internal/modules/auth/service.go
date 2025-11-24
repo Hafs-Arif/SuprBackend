@@ -14,6 +14,7 @@ import (
 	"github.com/umar5678/go-backend/internal/utils/logger"
 	"github.com/umar5678/go-backend/internal/utils/password"
 	"github.com/umar5678/go-backend/internal/utils/response"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -283,6 +284,7 @@ func (s *service) EmailSignup(ctx context.Context, req authdto.EmailSignupReques
 
 // EmailLogin handles email-based login
 func (s *service) EmailLogin(ctx context.Context, req authdto.EmailLoginRequest) (*authdto.AuthResponse, error) {
+	logger.Debug("service fun for emial login, ============")
 	if err := req.Validate(); err != nil {
 		return nil, response.BadRequest(err.Error())
 	}
@@ -290,7 +292,7 @@ func (s *service) EmailLogin(ctx context.Context, req authdto.EmailLoginRequest)
 	user, err := s.repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, response.UnauthorizedError("Invalid email or password")
+			return nil, response.UnauthorizedError("Invalid email or password , email or pas")
 		}
 		return nil, response.InternalServerError("Failed to find user", err)
 	}
@@ -300,7 +302,20 @@ func (s *service) EmailLogin(ctx context.Context, req authdto.EmailLoginRequest)
 		return nil, response.BadRequest("This account uses phone authentication")
 	}
 
+	// if !password.Verify(*user.Password, req.Password) {
+	// 	logger.Debug("password verify: ", *user.Password, req.Password)
+	// 	return nil, response.UnauthorizedError("Invalid credentials || password validation failed ")
+	// }
+
 	if !password.Verify(*user.Password, req.Password) {
+		logger.Debug("RAW stored hash: ", *user.Password)
+		logger.Debug("Hash length: ", len(*user.Password))
+		logger.Debug("Hash starts with: ", (*user.Password)[:7]) // should be "$2a$" or "$2b$"
+
+		// Test manually with bcrypt
+		err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(req.Password))
+		logger.Debug("bcrypt error: ", err)
+
 		return nil, response.UnauthorizedError("Invalid credentials")
 	}
 
