@@ -22,7 +22,10 @@ import (
 	"github.com/umar5678/go-backend/internal/modules/auth"
 	"github.com/umar5678/go-backend/internal/modules/drivers"
 	"github.com/umar5678/go-backend/internal/modules/homeservices"
+	homeservicesAdmin "github.com/umar5678/go-backend/internal/modules/homeservices/admin"
+	homeservicesCustomer "github.com/umar5678/go-backend/internal/modules/homeservices/customer"
 	_ "github.com/umar5678/go-backend/internal/modules/homeservices/dto" // Alias for clarity
+	homeservicesProvider "github.com/umar5678/go-backend/internal/modules/homeservices/provider"
 	"github.com/umar5678/go-backend/internal/modules/pricing"
 	_ "github.com/umar5678/go-backend/internal/modules/ratings/dto"
 	"github.com/umar5678/go-backend/internal/modules/riders"
@@ -168,6 +171,9 @@ func main() {
 	{
 		v1.Use(middleware.RateLimit(cfg.Server.RateLimit))
 
+		// Use mock wallet service for now - TODO: implement proper wallet service adapter
+		mockWalletService := homeservicesCustomer.NewMockWalletService()
+
 		// Riders module (initialize FIRST, before auth)
 		ridersRepo := riders.NewRepository(db)
 		ridersService := riders.NewService(ridersRepo)
@@ -242,6 +248,52 @@ func main() {
 		homeServicesService := homeservices.NewService(homeServicesRepo, walletService, cfg)
 		homeServicesHandler := homeservices.NewHandler(homeServicesService)
 		homeservices.RegisterRoutes(v1, homeServicesHandler, authMiddleware)
+
+		// Admin Home Services
+		homeservicesAdminRepo := homeservicesAdmin.NewRepository(db)
+		homeservicesAdminService := homeservicesAdmin.NewService(homeservicesAdminRepo)
+		homeservicesAdminHandler := homeservicesAdmin.NewHandler(homeservicesAdminService)
+
+		// Order management (Module 6)
+		homeservicesAdminOrderRepo := homeservicesAdmin.NewOrderRepository(db)
+		homeservicesAdminOrderService := homeservicesAdmin.NewOrderService(
+			homeservicesAdminOrderRepo,
+			mockWalletService,
+		)
+		homeservicesAdminOrderHandler := homeservicesAdmin.NewOrderHandler(homeservicesAdminOrderService)
+		adminGroup := v1.Group("/admin")
+		homeservicesAdmin.RegisterRoutes(
+			adminGroup,
+			homeservicesAdminHandler,
+			homeservicesAdminOrderHandler,
+			authMiddleware,
+		)
+
+		// Customer Home Services
+		homeservicesCustomerRepo := homeservicesCustomer.NewRepository(db)
+		homeservicesCustomerService := homeservicesCustomer.NewService(homeservicesCustomerRepo)
+		homeservicesCustomerHandler := homeservicesCustomer.NewHandler(homeservicesCustomerService)
+
+		// Customer Order Management
+		homeservicesOrderRepo := homeservicesCustomer.NewOrderRepository(db)
+		homeservicesOrderService := homeservicesCustomer.NewOrderService(homeservicesOrderRepo, homeservicesCustomerRepo, mockWalletService)
+		homeservicesOrderHandler := homeservicesCustomer.NewOrderHandler(homeservicesOrderService)
+
+		homeservicesCustomer.RegisterRoutes(v1, homeservicesCustomerHandler, homeservicesOrderHandler, authMiddleware)
+
+		// Provider Home Services
+		homeservicesProviderRepo := homeservicesProvider.NewRepository(db)
+		homeservicesProviderService := homeservicesProvider.NewService(
+			homeservicesProviderRepo,
+			mockWalletService,
+		)
+		homeservicesProviderHandler := homeservicesProvider.NewHandler(homeservicesProviderService)
+
+		homeservicesProvider.RegisterRoutes(
+			v1,
+			homeservicesProviderHandler,
+			authMiddleware,
+		)
 
 		// Add other modules here...
 	}

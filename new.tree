@@ -1,0 +1,261 @@
+├── .air.toml
+├── .gitignore
+├── API Testing Guide.md
+├── cmd
+│  └── api
+│    └── main.go
+├── docs
+│  ├── architecture.md
+│  ├── current-archit.md
+│  ├── feat-dev-guide-redis-socket.md
+│  ├── redis+socket.md
+│  └── using-sockets.md
+├── go.mod
+├── go.sum
+├── internal
+│  ├── config
+│  │  ├── config.go
+│  │  ├── database.go
+│  │  ├── types.go
+│  │  └── websocket.go
+│  ├── database
+│  │  └── postgres.go
+│  ├── docs
+│  │  ├── docs.go
+│  │  ├── swagger.json
+│  │  └── swagger.yaml
+│  ├── middleware
+│  │  ├── auth.go
+│  │  ├── cors.go
+│  │  ├── logger.go
+│  │  ├── rate_limiter.go
+│  │  ├── rbac.go
+│  │  ├── recovery.go
+│  │  ├── request_context.go
+│  │  └── response_body_logger.go
+│  ├── models
+│  │  ├── driver_location.go
+│  │  ├── Driver_profile.go
+│  │  ├── homeservice.go
+│  │  ├── ride.go
+│  │  ├── rider_profile.go
+│  │  ├── service_provider.go
+│  │  ├── surge_pricing.go
+│  │  ├── user.go
+│  │  ├── vehicle_types.go
+│  │  └── wallet.go
+│  ├── modules
+│  │  ├── admin
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── admindashboard
+│  │  │  └── readme.md
+│  │  ├── auth
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── drivers
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── homeservices
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── respository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── pricing
+│  │  │  ├── calculator.go
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  ├── service.go
+│  │  │  └── surge.go
+│  │  ├── ratings
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── riders
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── rides
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  ├── service.go
+│  │  │  └── websocket_helper.go
+│  │  ├── serviceproviders
+│  │  │  ├── repository.go
+│  │  │  └── service.go
+│  │  ├── tracking
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  ├── vehicles
+│  │  │  ├── dto
+│  │  │  │  ├── request.go
+│  │  │  │  └── response.go
+│  │  │  ├── handler.go
+│  │  │  ├── outline.md
+│  │  │  ├── repository.go
+│  │  │  ├── routes.go
+│  │  │  └── service.go
+│  │  └── wallet
+│  │    ├── dto
+│  │    │  ├── request.go
+│  │    │  └── response.go
+│  │    ├── handler.go
+│  │    ├── outline.md
+│  │    ├── repository.go
+│  │    ├── routes.go
+│  │    └── service.go
+│  ├── services
+│  │  ├── cache
+│  │  │  ├── cache.go
+│  │  │  ├── pubsub.go
+│  │  │  ├── redis.go
+│  │  │  ├── session.go
+│  │  │  └── types.go
+│  │  ├── location_service.go
+│  │  └── websockets
+│  │    └── service.go
+│  ├── utils
+│  │  ├── helpers
+│  │  │  └── websocket.go
+│  │  ├── jwt
+│  │  │  └── jwt.go
+│  │  ├── location
+│  │  │  ├── distance.go
+│  │  │  ├── geohash.go
+│  │  │  └── validation.go
+│  │  ├── logger
+│  │  │  └── logger.go
+│  │  ├── password
+│  │  │  └── hash.go
+│  │  └── response
+│  │    ├── api_response.old
+│  │    ├── error.go
+│  │    ├── pagination.go
+│  │    └── response.go
+│  └── websocket
+│    ├── client.go
+│    ├── handlers
+│    │  ├── handlers.go
+│    │  └── ride_handler.go
+│    ├── hub.go
+│    ├── manager.go
+│    ├── messages_ride.go
+│    ├── messages.go
+│    ├── middleware
+│    │  └── auth.go
+│    ├── middleware.go
+│    ├── routes.go
+│    ├── server.go
+│    ├── stores.go
+│    ├── test_handler.go
+│    └── websocketutils
+│      └── websocketutils.go
+├── Makefile
+├── migrations
+│  ├── 000001_create_user_table.down.sql
+│  ├── 000001_create_user_table.up.sql
+│  ├── 000002_create_todo_table.down.sql
+│  ├── 000002_create_todo_table.up.sql
+│  ├── 000003_create_wallet_table.down.sql
+│  ├── 000003_create_wallet_table.up.sql
+│  ├── 000004_create_rider_profiles.down.sql
+│  ├── 000004_create_rider_profiles.up.sql
+│  ├── 000005_create_vehicle_types.down.sql
+│  ├── 000005_create_vehicle_types.up.sql
+│  ├── 000006_create_drivers_and_vehicles.down.sql
+│  ├── 000006_create_drivers_and_vehicles.up.sql
+│  ├── 000007_driver_location_history.down.sql
+│  ├── 000007_driver_location_history.up.sql
+│  ├── 000008_create_surge_pricing_zones.down.sql
+│  ├── 000008_create_surge_pricing_zones.up.sql
+│  ├── 000009_create_rides.down.sql
+│  ├── 000009_create_rides.up.sql
+│  ├── 000011_create_home_services_tables.down.sql
+│  ├── 000011_create_home_services_tables.up.sql
+│  ├── 000012_update_ride_requests.down.sql
+│  ├── 000012_update_ride_requests.up.sql
+│  ├── 000013_update_driver_location.down.sql
+│  ├── 000013_update_driver_location.up.sql
+│  ├── 000014_create_home_services_tables.down.sql
+│  ├── 000014_create_home_services_tables.up.sql
+│  ├── 000015_driver_current_location.down.sql
+│  ├── 000015_driver_current_location.up.sql
+│  ├── 000016_wallet_trx_col_name_type.down.sql
+│  ├── 000016_wallet_trx_col_name_type.up.sql
+│  ├── 000017_add_service_providers.down.sql
+│  ├── 000017_add_service_providers.up.sql
+│  ├── 000018_add_quantity_hours_to_orders.down.sql
+│  ├── 000018_add_quantity_hours_to_orders.up.sql
+│  ├── 000019_fix_service_category_columns.down.sql
+│  ├── 000019_fix_service_category_columns.up.sql
+│  ├── 000020_create_complete_home_services_schema.down.sql
+│  ├── 000020_create_complete_home_services_schema.up.sql
+│  ├── 000021_fix_services_table_columns.down.sql
+│  ├── 000021_fix_services_table_columns.up.sql
+│  ├── 000022_add_highlights_to_service_categories.down.sql
+│  ├── 000022_add_highlights_to_service_categories.up.sql
+│  ├── 000023_change_column_type.down.sql
+│  ├── 000023_change_column_type.up.sql
+│  ├── 000024_add_lat_lon_to_service_orders.down.sql
+│  ├── 000024_add_lat_lon_to_service_orders.up.sql
+│  ├── 000025_new_service_tables_migrate_full.down.sql
+│  └── 000025_new_service_tables_migrate_full.up.sql
+├── nginx.txt
+├── old.nginx.txt
+├── README.md
+├── scripts
+│  ├── commands.md
+│  ├── public.endpoints.sh
+│  └── test_homeservices.sh
+├── tools
+│  ├── prod
+│  │  └── web_sockets_test.html
+│  └── web_sockets_test.html
+└── tree
