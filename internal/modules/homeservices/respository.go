@@ -16,6 +16,7 @@ type Repository interface {
 	GetCategoryByID(ctx context.Context, id uint) (*models.ServiceCategory, error)
 	GetCategoryWithTabs(ctx context.Context, id uint) (*models.ServiceCategory, error)
 	CreateCategory(ctx context.Context, category *models.ServiceCategory) error
+	GetAllCategorySlugs(ctx context.Context) ([]string, error)
 	ListServices(ctx context.Context, query homeServiceDto.ListServicesQuery) ([]*models.Service, int64, error)
 	GetServiceByID(ctx context.Context, id uint) (*models.Service, error)
 	GetServiceWithOptions(ctx context.Context, id uint) (*models.Service, error)
@@ -59,6 +60,8 @@ type Repository interface {
 	CreateProvider(ctx context.Context, provider *models.ServiceProvider, lat, lon float64) error
 	AssignServiceToProvider(ctx context.Context, providerID string, serviceID uint) error
 	RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID uint) error
+	AddProviderCategory(ctx context.Context, category *models.ProviderServiceCategory) error
+	GetProviderCategory(ctx context.Context, providerID string, categorySlug string) (*models.ProviderServiceCategory, error)
 }
 
 type repository struct {
@@ -100,6 +103,16 @@ func (r *repository) GetCategoryWithTabs(ctx context.Context, id uint) (*models.
 
 func (r *repository) CreateCategory(ctx context.Context, category *models.ServiceCategory) error {
 	return r.db.WithContext(ctx).Create(category).Error
+}
+
+func (r *repository) GetAllCategorySlugs(ctx context.Context) ([]string, error) {
+	var slugs []string
+	err := r.db.WithContext(ctx).
+		Model(&models.ServiceNew{}).
+		Distinct("category_slug").
+		Order("category_slug ASC").
+		Pluck("category_slug", &slugs).Error
+	return slugs, err
 }
 
 func (r *repository) ListTabs(ctx context.Context, categoryID uint) ([]models.ServiceTab, error) {
@@ -505,4 +518,19 @@ func (r *repository) RemoveServiceFromProvider(ctx context.Context, providerID s
         DELETE FROM provider_qualified_services
         WHERE provider_id = ? AND service_id = ?
     `, providerID, serviceID).Error
+}
+
+func (r *repository) AddProviderCategory(ctx context.Context, category *models.ProviderServiceCategory) error {
+	return r.db.WithContext(ctx).Create(category).Error
+}
+
+func (r *repository) GetProviderCategory(ctx context.Context, providerID string, categorySlug string) (*models.ProviderServiceCategory, error) {
+	var category models.ProviderServiceCategory
+	err := r.db.WithContext(ctx).
+		Where("provider_id = ? AND category_slug = ?", providerID, categorySlug).
+		First(&category).Error
+	if err != nil {
+		return nil, err
+	}
+	return &category, nil
 }

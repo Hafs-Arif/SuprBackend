@@ -47,7 +47,7 @@ type ServiceResponse struct {
 	CategorySlug       string   `json:"categorySlug"`
 	Description        string   `json:"description"`
 	LongDescription    string   `json:"longDescription,omitempty"`
-	Highlights         []string `json:"highlights"`
+	Highlights         string   `json:"highlights"`
 	WhatsIncluded      []string `json:"whatsIncluded"`
 	TermsAndConditions []string `json:"termsAndConditions,omitempty"`
 	BannerImage        string   `json:"bannerImage,omitempty"`
@@ -77,8 +77,8 @@ type ServiceListResponse struct {
 
 // ServiceDetailResponse represents full service details with related addons
 type ServiceDetailResponse struct {
-	Service       ServiceResponse `json:"service"`
-	RelatedAddons []AddonResponse `json:"relatedAddons"`
+	Service ServiceResponse `json:"service"`
+	Addons  []AddonResponse `json:"addons"`
 }
 
 // ==================== Addon Responses ====================
@@ -176,8 +176,8 @@ func FormatPriceValue(price float64) string {
 
 // ToServiceResponse converts model to full service response
 func ToServiceResponse(service *models.ServiceNew) ServiceResponse {
-	highlights := make([]string, len(service.Highlights))
-	copy(highlights, service.Highlights)
+	// highlights := make([]string, len(service.Highlights))
+	// copy(highlights, service.Highlights)
 
 	whatsIncluded := make([]string, len(service.WhatsIncluded))
 	copy(whatsIncluded, service.WhatsIncluded)
@@ -193,7 +193,7 @@ func ToServiceResponse(service *models.ServiceNew) ServiceResponse {
 		CategorySlug:       service.CategorySlug,
 		Description:        service.Description,
 		LongDescription:    service.LongDescription,
-		Highlights:         highlights,
+		Highlights:         service.Highlights,
 		WhatsIncluded:      whatsIncluded,
 		TermsAndConditions: termsAndConditions,
 		BannerImage:        service.BannerImage,

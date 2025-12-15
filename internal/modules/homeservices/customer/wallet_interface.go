@@ -59,3 +59,4 @@ func (m *MockWalletService) Debit(ctx context.Context, userID string, amount flo
 func (m *MockWalletService) Credit(ctx context.Context, userID string, amount float64, transactionType, referenceID, description string) error {
 	return nil
 }
+ 

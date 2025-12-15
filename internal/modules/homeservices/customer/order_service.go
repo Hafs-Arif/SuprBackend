@@ -92,8 +92,22 @@ func (s *orderService) CreateOrder(ctx context.Context, customerID string, req d
 	}
 
 	// Create order
+	// Parse PreferredTime (accept RFC3339 first, then fallback to "15:04" hour:minute format)
+	var preferredTime time.Time
+	if req.BookingInfo.PreferredTime != "" {
+		pt, err := time.Parse(time.RFC3339, req.BookingInfo.PreferredTime)
+		if err != nil {
+			pt, err = time.Parse("15:04", req.BookingInfo.PreferredTime)
+			if err != nil {
+				return nil, response.BadRequest("invalid preferred time format; expected RFC3339 or 15:04")
+			}
+		}
+		preferredTime = pt
+	}
+
 	order := &models.ServiceOrderNew{
-		CustomerID: customerID,
+		OrderNumber: shared.GenerateOrderNumber(),
+		CustomerID:  customerID,
 		CustomerInfo: models.CustomerInfo{
 			Name:    req.CustomerInfo.Name,
 			Phone:   req.CustomerInfo.Phone,
@@ -106,7 +120,7 @@ func (s *orderService) CreateOrder(ctx context.Context, customerID string, req d
 			Day:            req.BookingInfo.GetDayOfWeek(),
 			Date:           req.BookingInfo.Date,
 			Time:           req.BookingInfo.Time,
-			PreferredTime:  req.BookingInfo.PreferredTime,
+			PreferredTime:  preferredTime,
 			QuantityOfPros: req.BookingInfo.QuantityOfPros,
 		},
 		CategorySlug:       req.CategorySlug,

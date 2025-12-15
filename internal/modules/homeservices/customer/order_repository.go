@@ -65,7 +65,7 @@ func (r *orderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 }
 
 func (r *orderRepository) Update(ctx context.Context, order *models.ServiceOrderNew) error {
-	return r.db.WithContext(ctx).Save(order).Error
+	return r.db.WithContext(ctx).Model(&models.ServiceOrderNew{}).Where("id = ?", order.ID).Updates(order).Error
 }
 
 func (r *orderRepository) GetCustomerOrders(ctx context.Context, customerID string, query dto.ListOrdersQuery) ([]*models.ServiceOrderNew, int64, error) {

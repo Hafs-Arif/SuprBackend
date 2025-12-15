@@ -17,7 +17,7 @@ type ServiceNew struct {
 	CategorySlug       string         `gorm:"type:varchar(255);not null;index" json:"categorySlug"`
 	Description        string         `gorm:"type:text" json:"description"`
 	LongDescription    string         `gorm:"type:text" json:"longDescription"`
-	Highlights         pq.StringArray `gorm:"type:text[]" json:"highlights"`
+	Highlights         string         `gorm:"type:text" json:"highlights"`
 	WhatsIncluded      pq.StringArray `gorm:"type:text[];not null;default:'{}'" json:"whatsIncluded"`
 	TermsAndConditions pq.StringArray `gorm:"type:text[]" json:"termsAndConditions"`
 	BannerImage        string         `gorm:"type:varchar(500)" json:"bannerImage"`

@@ -541,7 +541,13 @@ func ToAdminOrderDetailResponse(order *models.ServiceOrderNew, history []models.
 		Day:           order.BookingInfo.Day,
 		Date:          order.BookingInfo.Date,
 		Time:          order.BookingInfo.Time,
-		PreferredTime: order.BookingInfo.PreferredTime,
+		PreferredTime: func() string {
+			if order.BookingInfo.PreferredTime.IsZero() {
+				return ""
+			}
+			// format PreferredTime to a human-readable string (e.g., "3:04 PM")
+			return FormatTime(order.BookingInfo.PreferredTime.Format("15:04"))
+		}(),
 		FormattedDate: FormatDate(order.BookingInfo.Date),
 		FormattedTime: FormatTime(order.BookingInfo.Time),
 		IsPast:        bookingDate.Before(today),

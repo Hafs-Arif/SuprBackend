@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/umar5678/go-backend/internal/models"
@@ -220,13 +221,18 @@ func ToOrderCustomerInfo(info models.CustomerInfo) OrderCustomerInfo {
 
 // ToOrderBookingInfo converts model to response
 func ToOrderBookingInfo(info models.BookingInfo) OrderBookingInfo {
+	// Use fmt.Sprint to safely convert underlying types (string, time.Time, *string, etc.) to string
+	dateStr := fmt.Sprint(info.Date)
+	timeStr := fmt.Sprint(info.Time)
+	preferredStr := fmt.Sprint(info.PreferredTime)
+
 	return OrderBookingInfo{
-		Day:            info.Day,
-		Date:           info.Date,
-		Time:           info.Time,
-		PreferredTime:  info.PreferredTime,
-		FormattedDate:  FormatOrderDate(info.Date),
-		FormattedTime:  FormatOrderTime(info.Time),
+		Day:            fmt.Sprint(info.Day),
+		Date:           dateStr,
+		Time:           timeStr,
+		PreferredTime:  preferredStr,
+		FormattedDate:  FormatOrderDate(dateStr),
+		FormattedTime:  FormatOrderTime(timeStr),
 		QuantityOfPros: info.QuantityOfPros,
 	}
 }

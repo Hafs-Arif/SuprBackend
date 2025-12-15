@@ -72,7 +72,7 @@ func (s *service) CreateService(ctx context.Context, req dto.CreateServiceReques
 		CategorySlug:       req.CategorySlug,
 		Description:        req.Description,
 		LongDescription:    req.LongDescription,
-		Highlights:         pq.StringArray(req.Highlights),
+		Highlights:         req.Highlights,
 		WhatsIncluded:      pq.StringArray(req.WhatsIncluded),
 		TermsAndConditions: pq.StringArray(req.TermsAndConditions),
 		BannerImage:        req.BannerImage,
@@ -142,7 +142,7 @@ func (s *service) UpdateService(ctx context.Context, slug string, req dto.Update
 		svc.LongDescription = *req.LongDescription
 	}
 	if req.Highlights != nil {
-		svc.Highlights = pq.StringArray(req.Highlights)
+		svc.Highlights = *req.Highlights
 	}
 	if req.WhatsIncluded != nil {
 		svc.WhatsIncluded = pq.StringArray(req.WhatsIncluded)

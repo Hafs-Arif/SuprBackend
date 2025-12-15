@@ -15,7 +15,7 @@ type CreateServiceRequest struct {
 	CategorySlug       string   `json:"categorySlug" binding:"required,min=2,max=255"`
 	Description        string   `json:"description" binding:"omitempty,max=2000"`
 	LongDescription    string   `json:"longDescription" binding:"omitempty,max=10000"`
-	Highlights         []string `json:"highlights" binding:"omitempty,dive,min=1,max=500"`
+	Highlights         string   `json:"highlights" binding:"required,min=3,max=500"`
 	WhatsIncluded      []string `json:"whatsIncluded" binding:"required,min=1,dive,min=1,max=500"`
 	TermsAndConditions []string `json:"termsAndConditions" binding:"omitempty,dive,min=1,max=1000"`
 	BannerImage        string   `json:"bannerImage" binding:"omitempty,url,max=500"`
@@ -117,7 +117,7 @@ type UpdateServiceRequest struct {
 	CategorySlug       *string  `json:"categorySlug" binding:"omitempty,min=2,max=255"`
 	Description        *string  `json:"description" binding:"omitempty,max=2000"`
 	LongDescription    *string  `json:"longDescription" binding:"omitempty,max=10000"`
-	Highlights         []string `json:"highlights" binding:"omitempty,dive,min=1,max=500"`
+	Highlights         *string  `json:"highlights" binding:"required,min=3,max=500"`
 	WhatsIncluded      []string `json:"whatsIncluded" binding:"omitempty,min=1,dive,min=1,max=500"`
 	TermsAndConditions []string `json:"termsAndConditions" binding:"omitempty,dive,min=1,max=1000"`
 	BannerImage        *string  `json:"bannerImage" binding:"omitempty,max=500"`

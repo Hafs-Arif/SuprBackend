@@ -10,6 +10,7 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 	{
 		// --- Public Routes ---
 		services.GET("/categories", handler.ListCategories)
+		services.GET("/category-slugs", handler.GetAllCategorySlugs)
 		services.GET("/categories/:id", handler.GetCategoryWithTabs)
 		services.GET("", handler.ListServices)
 		services.GET("/:id", handler.GetServiceDetails)

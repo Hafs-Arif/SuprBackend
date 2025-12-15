@@ -203,8 +203,8 @@ func (s *service) GetServiceBySlug(ctx context.Context, slug string) (*dto.Servi
 	}
 
 	return &dto.ServiceDetailResponse{
-		Service:       dto.ToServiceResponse(svc),
-		RelatedAddons: dto.ToAddonResponses(addons),
+		Service: dto.ToServiceResponse(svc),
+		Addons:  dto.ToAddonResponses(addons),
 	}, nil
 }
 

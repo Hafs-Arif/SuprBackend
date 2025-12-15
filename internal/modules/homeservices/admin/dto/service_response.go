@@ -15,7 +15,7 @@ type ServiceResponse struct {
 	CategorySlug       string    `json:"categorySlug"`
 	Description        string    `json:"description"`
 	LongDescription    string    `json:"longDescription"`
-	Highlights         []string  `json:"highlights"`
+	Highlights         string    `json:"highlights"`
 	WhatsIncluded      []string  `json:"whatsIncluded"`
 	TermsAndConditions []string  `json:"termsAndConditions"`
 	BannerImage        string    `json:"bannerImage"`
@@ -82,9 +82,9 @@ func ToServiceResponse(service *models.ServiceNew) *ServiceResponse {
 		return nil
 	}
 
-	// Convert pq.StringArray to []string
-	highlights := make([]string, len(service.Highlights))
-	copy(highlights, service.Highlights)
+	// // Convert pq.StringArray to []string
+	// highlights := make([]string, len(service.Highlights))
+	// copy(highlights, service.Highlights)
 
 	whatsIncluded := make([]string, len(service.WhatsIncluded))
 	copy(whatsIncluded, service.WhatsIncluded)
@@ -100,7 +100,7 @@ func ToServiceResponse(service *models.ServiceNew) *ServiceResponse {
 		CategorySlug:       service.CategorySlug,
 		Description:        service.Description,
 		LongDescription:    service.LongDescription,
-		Highlights:         highlights,
+		Highlights:         service.Highlights,
 		WhatsIncluded:      whatsIncluded,
 		TermsAndConditions: termsAndConditions,
 		BannerImage:        service.BannerImage,

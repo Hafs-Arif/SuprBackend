@@ -185,6 +185,7 @@ type ServiceOrder struct {
 	Frequency      string     `gorm:"type:varchar(50);default:'once'" json:"frequency"`      // once, daily, weekly, monthly
 	QuantityOfPros int        `gorm:"type:integer;not null;default:1" json:"quantityOfPros"` //  NEW: Number of professionals
 	HoursOfService float64    `gorm:"type:decimal(5,2);not null;default:1.0" json:"hoursOfService"`
+	CategorySlug   string     `gorm:"type:varchar(255);index" json:"categorySlug"` // Service category slug for provider filtering
 	Subtotal       float64    `gorm:"type:decimal(10,2);not null" json:"subtotal"`
 	Discount       float64    `gorm:"type:decimal(10,2);default:0" json:"discount"`
 	SurgeFee       float64    `gorm:"type:decimal(10,2);default:0" json:"surgeFee"`

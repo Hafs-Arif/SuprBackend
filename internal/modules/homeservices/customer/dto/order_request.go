@@ -35,7 +35,7 @@ func (c *CustomerInfoRequest) Validate() error {
 type BookingInfoRequest struct {
 	Date           string `json:"date" binding:"required"`           // YYYY-MM-DD
 	Time           string `json:"time" binding:"required"`           // HH:MM
-	PreferredTime  string `json:"preferredTime" binding:"omitempty"` // morning, afternoon, evening
+	PreferredTime  string `json:"preferredTime" binding:"omitempty"` // optional specific time HH:MM
 	QuantityOfPros int    `json:"quantityOfPros" binding:"required,min=1,max=5"`
 }
 
@@ -64,11 +64,6 @@ func (b *BookingInfoRequest) Validate() error {
 	maxBookingTime := time.Now().AddDate(0, 0, 30)
 	if bookingDateTime.After(maxBookingTime) {
 		return fmt.Errorf("booking cannot be more than 30 days in the future")
-	}
-
-	// Validate preferred time if provided
-	if b.PreferredTime != "" && !shared.ValidatePreferredTime(b.PreferredTime) {
-		return fmt.Errorf("preferredTime must be one of: morning, afternoon, evening")
 	}
 
 	// Set day of week

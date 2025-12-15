@@ -272,11 +272,15 @@ func CalculateProviderPayout(totalPrice float64) float64 {
 
 // ToOrderBookingInfo converts model to response
 func ToOrderBookingInfo(info models.BookingInfo) OrderBookingInfo {
+	var preferred string
+	if !info.PreferredTime.IsZero() {
+		preferred = FormatTime(info.PreferredTime.Format("15:04"))
+	}
 	return OrderBookingInfo{
 		Day:           info.Day,
 		Date:          info.Date,
 		Time:          info.Time,
-		PreferredTime: info.PreferredTime,
+		PreferredTime: preferred,
 		FormattedDate: FormatDate(info.Date),
 		FormattedTime: FormatTime(info.Time),
 	}

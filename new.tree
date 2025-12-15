@@ -48,7 +48,7 @@
 │  │  ├── admin
 │  │  │  ├── dto
 │  │  │  │  ├── request.go
-│  │  │  │  └── response.go
+│  │  │  │  └── response.go`
 │  │  │  ├── handler.go
 │  │  │  ├── repository.go
 │  │  │  ├── routes.go

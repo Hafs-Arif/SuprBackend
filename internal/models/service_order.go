@@ -39,11 +39,11 @@ func (c *CustomerInfo) Scan(value interface{}) error {
 
 // BookingInfo stores booking date/time information
 type BookingInfo struct {
-	Day            string `json:"day"`                        // e.g., "Monday"
-	Date           string `json:"date"`                       // YYYY-MM-DD
-	Time           string `json:"time"`                       // HH:MM
-	PreferredTime  string `json:"preferredTime"`              // morning, afternoon, evening
-	QuantityOfPros int    `json:"quantityOfPros" default:"1"` // number of service providers
+	Day            string    `json:"day"`                        // e.g., "Monday"
+	Date           string    `json:"date"`                       // YYYY-MM-DD
+	Time           string    `json:"time"`                       // HH:MM
+	PreferredTime  time.Time `json:"prefferedTime"`              // HH:MM
+	QuantityOfPros int       `json:"quantityOfPros" default:"1"` // number of service providers
 }
 
 // Value implements driver.Valuer for database storage

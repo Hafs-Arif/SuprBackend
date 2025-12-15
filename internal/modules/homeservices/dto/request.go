@@ -213,6 +213,7 @@ type CreateOptionChoiceRequest struct {
 // RegisterProviderRequest for new provider registration
 type RegisterProviderRequest struct {
 	ServiceIDs   []uint  `json:"serviceIds" binding:"required,min=1,dive,min=1"`
+	CategorySlug string  `json:"categorySlug" binding:"required,min=2,max=100"`
 	Latitude     float64 `json:"latitude" binding:"required,latitude"`
 	Longitude    float64 `json:"longitude" binding:"required,longitude"`
 	Photo        *string `json:"photo" binding:"omitempty,url"`

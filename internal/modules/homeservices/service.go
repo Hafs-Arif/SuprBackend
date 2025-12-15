@@ -31,6 +31,7 @@ type Service interface {
 	// Customer - Service Catalog
 	ListCategories(ctx context.Context) ([]*homeservicedto.ServiceCategoryResponse, error)
 	GetCategoryWithTabs(ctx context.Context, id uint) (*homeservicedto.CategoryWithTabsResponse, error)
+	GetAllCategorySlugs(ctx context.Context) ([]string, error)
 	ListServices(ctx context.Context, query homeservicedto.ListServicesQuery) ([]*homeservicedto.ServiceListResponse, *response.PaginationMeta, error)
 	GetServiceDetails(ctx context.Context, id uint) (*homeservicedto.ServiceDetailResponse, error)
 	ListAddOns(ctx context.Context, categoryID uint) ([]*homeservicedto.AddOnResponse, error)
@@ -84,6 +85,16 @@ func (s *service) ListCategories(ctx context.Context) ([]*homeservicedto.Service
 	}
 
 	return homeservicedto.ToServiceCategoryList(categories), nil
+}
+
+// GetAllCategorySlugs returns all distinct category slugs from services table for dropdown
+func (s *service) GetAllCategorySlugs(ctx context.Context) ([]string, error) {
+	slugs, err := s.repo.GetAllCategorySlugs(ctx)
+	if err != nil {
+		logger.Error("failed to list category slugs", "error", err)
+		return nil, response.InternalServerError("Failed to fetch category slugs", err)
+	}
+	return slugs, nil
 }
 
 func (s *service) GetCategoryWithTabs(ctx context.Context, id uint) (*homeservicedto.CategoryWithTabsResponse, error) {
@@ -203,7 +214,22 @@ func (s *service) RegisterProvider(ctx context.Context, userID string, req homes
 		return nil, response.InternalServerError("Failed to create provider profile", err)
 	}
 
-	// 4. Assign qualified services
+	// 4. Register provider category selection (so provider receives notifications for this category)
+	if req.CategorySlug != "" {
+		category := &models.ProviderServiceCategory{
+			ProviderID:        providerID,
+			CategorySlug:      req.CategorySlug,
+			ExpertiseLevel:    "beginner",
+			YearsOfExperience: 0,
+			IsActive:          true,
+		}
+		if err := s.repo.AddProviderCategory(ctx, category); err != nil {
+			// log but don't block registration
+			logger.Error("failed to add provider category", "error", err, "providerID", providerID, "category", req.CategorySlug)
+		}
+	}
+
+	// 5. Assign qualified services
 	for _, serviceID := range req.ServiceIDs {
 		if err := s.repo.AssignServiceToProvider(ctx, providerID, serviceID); err != nil {
 			logger.Error("failed to assign service to provider",
@@ -1063,6 +1089,13 @@ func (s *service) FindAndNotifyNextProvider(orderID string) {
 		return
 	}
 
+	// Get order's category slug for filtering providers
+	orderCategorySlug := order.CategorySlug
+	if orderCategorySlug == "" {
+		logger.Error("order has no category slug", "orderID", orderID)
+		return
+	}
+
 	// 4. Get lat/lon from order (requires raw query since it's stored in PostGIS)
 	var lat, lon float64
 	// This would need to be implemented in repository
@@ -1082,17 +1115,20 @@ func (s *service) FindAndNotifyNextProvider(orderID string) {
 		return
 	}
 
-	// 6. Find next provider who hasn't been tried
-	var nextProvider *models.ServiceProvider
-	for i := range providers {
-		if !s.contains(rejectedIDs, providers[i].ID) {
-			nextProvider = &providers[i]
-			break
+	// 5a. Filter providers by category slug - only notify providers registered for this category
+	var eligibleProviders []models.ServiceProvider
+	for _, provider := range providers {
+		// Check if provider has registered for this category
+		category, _ := s.repo.GetProviderCategory(ctx, provider.ID, orderCategorySlug)
+		if category != nil && category.IsActive {
+			if !s.contains(rejectedIDs, provider.ID) {
+				eligibleProviders = append(eligibleProviders, provider)
+			}
 		}
 	}
 
-	if nextProvider == nil {
-		logger.Warn("all providers exhausted", "orderID", orderID)
+	if len(eligibleProviders) == 0 {
+		logger.Warn("no eligible providers for category", "orderID", orderID, "category", orderCategorySlug)
 		s.repo.UpdateOrderStatus(ctx, orderID, "no_provider_available")
 		if order.WalletHoldID != nil {
 			releaseReq := walletdto.ReleaseHoldRequest{HoldID: *order.WalletHoldID}
@@ -1100,6 +1136,9 @@ func (s *service) FindAndNotifyNextProvider(orderID string) {
 		}
 		return
 	}
+
+	// 6. Use first eligible provider
+	nextProvider := &eligibleProviders[0]
 
 	// 7. Offer job to provider
 	offerKey := fmt.Sprintf("provider:%s:current_offer", nextProvider.ID)
@@ -1109,7 +1148,7 @@ func (s *service) FindAndNotifyNextProvider(orderID string) {
 	rejectedIDs = append(rejectedIDs, nextProvider.ID)
 	cache.Set(ctx, rejectedKey, s.joinCommaSeparated(rejectedIDs), 24*time.Hour)
 
-	logger.Info("offering order to provider", "orderID", orderID, "providerID", nextProvider.ID)
+	logger.Info("offering order to provider", "orderID", orderID, "providerID", nextProvider.ID, "category", orderCategorySlug)
 
 	// TODO: Send push notification to provider
 
