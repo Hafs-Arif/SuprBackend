@@ -21,6 +21,7 @@ type Repository interface {
 	GetServiceByID(ctx context.Context, id uint) (*models.Service, error)
 	GetServiceWithOptions(ctx context.Context, id uint) (*models.Service, error)
 	GetServicesByIDs(ctx context.Context, ids []uint) ([]*models.Service, error)
+	GetServicesByUUIDs(ctx context.Context, ids []string) ([]*models.ServiceNew, error)
 
 	ListTabs(ctx context.Context, categoryID uint) ([]models.ServiceTab, error)
 	GetTabByID(ctx context.Context, id uint) (*models.ServiceTab, error)
@@ -58,8 +59,8 @@ type Repository interface {
 
 	// Provider Management
 	CreateProvider(ctx context.Context, provider *models.ServiceProvider, lat, lon float64) error
-	AssignServiceToProvider(ctx context.Context, providerID string, serviceID uint) error
-	RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID uint) error
+	AssignServiceToProvider(ctx context.Context, providerID string, serviceID string) error
+	RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID string) error
 	AddProviderCategory(ctx context.Context, category *models.ProviderServiceCategory) error
 	GetProviderCategory(ctx context.Context, providerID string, categorySlug string) (*models.ProviderServiceCategory, error)
 }
@@ -219,6 +220,14 @@ func (r *repository) GetServicesByIDs(ctx context.Context, ids []uint) ([]*model
 	err := r.db.WithContext(ctx).
 		Where("id IN ?", ids).
 		Preload("Options.Choices").
+		Find(&services).Error
+	return services, err
+}
+
+func (r *repository) GetServicesByUUIDs(ctx context.Context, ids []string) ([]*models.ServiceNew, error) {
+	var services []*models.ServiceNew
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
 		Find(&services).Error
 	return services, err
 }
@@ -505,7 +514,7 @@ func (r *repository) CreateProvider(ctx context.Context, provider *models.Servic
 	})
 }
 
-func (r *repository) AssignServiceToProvider(ctx context.Context, providerID string, serviceID uint) error {
+func (r *repository) AssignServiceToProvider(ctx context.Context, providerID string, serviceID string) error {
 	return r.db.WithContext(ctx).Exec(`
         INSERT INTO provider_qualified_services (provider_id, service_id)
         VALUES (?, ?)
@@ -513,7 +522,7 @@ func (r *repository) AssignServiceToProvider(ctx context.Context, providerID str
     `, providerID, serviceID).Error
 }
 
-func (r *repository) RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID uint) error {
+func (r *repository) RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID string) error {
 	return r.db.WithContext(ctx).Exec(`
         DELETE FROM provider_qualified_services
         WHERE provider_id = ? AND service_id = ?

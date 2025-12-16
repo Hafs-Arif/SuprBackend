@@ -184,15 +184,28 @@ func (s *service) RegisterProvider(ctx context.Context, userID string, req homes
 	// 	return nil, response.InternalServerError("Failed to check provider status", err)
 	// }
 
+	// 1.5 Validate that all serviceIds are valid UUIDs
+	for _, serviceID := range req.ServiceIDs {
+		if _, err := uuid.Parse(serviceID); err != nil {
+			return nil, response.BadRequest(fmt.Sprintf("Invalid service ID format: %s (must be a valid UUID)", serviceID))
+		}
+	}
+
 	// 2. Verify all services exist and are active
-	services, err := s.repo.GetServicesByIDs(ctx, req.ServiceIDs)
+	services, err := s.repo.GetServicesByUUIDs(ctx, req.ServiceIDs)
 	if err != nil {
-		logger.Error("failed to fetch services", "error", err, "serviceIDs", req.ServiceIDs)
+		logger.Error("failed to fetch services from database", "error", err, "serviceIDs", req.ServiceIDs)
 		return nil, response.InternalServerError("Failed to verify services", err)
 	}
 
+	// Verify that all requested serviceIds were found
+	if len(services) == 0 {
+		logger.Warn("no services found for provided IDs", "serviceIDs", req.ServiceIDs)
+		return nil, response.BadRequest("No valid services found for provided service IDs")
+	}
+
 	if len(services) != len(req.ServiceIDs) {
-		return nil, response.BadRequest("One or more service IDs are invalid")
+		return nil, response.BadRequest("One or more service IDs are invalid or not found in database")
 	}
 
 	// 3. Create provider profile
