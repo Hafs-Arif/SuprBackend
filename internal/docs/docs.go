@@ -2317,7 +2317,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Login with phone (riders/drivers)",
+                "summary": "Login with phone (riders / drivers / service providers)",
                 "parameters": [
                     {
                         "description": "Login data",
@@ -2362,7 +2362,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Signup with phone (riders/drivers)",
+                "summary": "Signup with phone (riders / drivers / service providers)",
                 "parameters": [
                     {
                         "description": "Signup data",
@@ -2610,6 +2610,56 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.UpdateDriverProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.DriverProfileResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/drivers/register": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "drivers"
+                ],
+                "summary": "Register driver profile",
+                "parameters": [
+                    {
+                        "description": "Driver registration data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.RegisterDriverRequest"
                         }
                     }
                 ],
@@ -8106,6 +8156,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_umar5678_go-backend_internal_modules_drivers_dto.RegisterDriverRequest": {
+            "type": "object",
+            "required": [
+                "licenseNumber",
+                "vehicle"
+            ],
+            "properties": {
+                "licenseNumber": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 5
+                },
+                "vehicle": {
+                    "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.VehicleInput"
+                }
+            }
+        },
         "github_com_umar5678_go-backend_internal_modules_drivers_dto.UpdateDriverProfileRequest": {
             "type": "object",
             "properties": {
@@ -8170,6 +8237,52 @@ const docTemplate = `{
                 },
                 "isActive": {
                     "type": "boolean"
+                },
+                "licensePlate": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 2
+                },
+                "make": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "model": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "vehicleTypeId": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer",
+                    "minimum": 1900
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_drivers_dto.VehicleInput": {
+            "type": "object",
+            "required": [
+                "capacity",
+                "color",
+                "licensePlate",
+                "make",
+                "model",
+                "vehicleTypeId",
+                "year"
+            ],
+            "properties": {
+                "capacity": {
+                    "type": "integer",
+                    "maximum": 20,
+                    "minimum": 1
+                },
+                "color": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 2
                 },
                 "licensePlate": {
                     "type": "string",

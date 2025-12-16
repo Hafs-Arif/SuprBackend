@@ -349,6 +349,18 @@ definitions:
       longitude:
         type: number
     type: object
+  github_com_umar5678_go-backend_internal_modules_drivers_dto.RegisterDriverRequest:
+    properties:
+      licenseNumber:
+        maxLength: 100
+        minLength: 5
+        type: string
+      vehicle:
+        $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.VehicleInput'
+    required:
+    - licenseNumber
+    - vehicle
+    type: object
   github_com_umar5678_go-backend_internal_modules_drivers_dto.UpdateDriverProfileRequest:
     properties:
       licenseNumber:
@@ -413,6 +425,42 @@ definitions:
       year:
         minimum: 1900
         type: integer
+    type: object
+  github_com_umar5678_go-backend_internal_modules_drivers_dto.VehicleInput:
+    properties:
+      capacity:
+        maximum: 20
+        minimum: 1
+        type: integer
+      color:
+        maxLength: 50
+        minLength: 2
+        type: string
+      licensePlate:
+        maxLength: 50
+        minLength: 2
+        type: string
+      make:
+        maxLength: 100
+        minLength: 2
+        type: string
+      model:
+        maxLength: 100
+        minLength: 2
+        type: string
+      vehicleTypeId:
+        type: string
+      year:
+        minimum: 1900
+        type: integer
+    required:
+    - capacity
+    - color
+    - licensePlate
+    - make
+    - model
+    - vehicleTypeId
+    - year
     type: object
   github_com_umar5678_go-backend_internal_modules_drivers_dto.VehicleResponse:
     properties:
@@ -5154,7 +5202,7 @@ paths:
                 data:
                   $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_auth_dto.AuthResponse'
               type: object
-      summary: Login with phone (riders/drivers)
+      summary: Login with phone (riders / drivers / service providers)
       tags:
       - auth
   /auth/phone/signup:
@@ -5180,7 +5228,7 @@ paths:
                 data:
                   $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_auth_dto.AuthResponse'
               type: object
-      summary: Signup with phone (riders/drivers)
+      summary: Signup with phone (riders / drivers / service providers)
       tags:
       - auth
   /auth/profile:
@@ -5314,6 +5362,34 @@ paths:
       security:
       - BearerAuth: []
       summary: Update driver profile
+      tags:
+      - drivers
+  /drivers/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Driver registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.RegisterDriverRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_umar5678_go-backend_internal_modules_drivers_dto.DriverProfileResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Register driver profile
       tags:
       - drivers
   /drivers/status:

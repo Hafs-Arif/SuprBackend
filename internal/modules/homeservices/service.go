@@ -2,7 +2,6 @@ package homeservices
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -180,10 +179,10 @@ func (s *service) RegisterProvider(ctx context.Context, userID string, req homes
 	if err == nil {
 		return nil, response.BadRequest("User is already registered as a service provider")
 	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Error("failed to check existing provider", "error", err, "userID", userID)
-		return nil, response.InternalServerError("Failed to check provider status", err)
-	}
+	// if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	// 	logger.Error("failed to check existing provider", "error", err, "userID", userID)
+	// 	return nil, response.InternalServerError("Failed to check provider status", err)
+	// }
 
 	// 2. Verify all services exist and are active
 	services, err := s.repo.GetServicesByIDs(ctx, req.ServiceIDs)

@@ -30,7 +30,7 @@ func RegisterRoutes(router *gin.RouterGroup, handler *Handler, authMiddleware gi
 		// --- Provider Protected Routes ---
 		provider := services.Group("/provider")
 		provider.Use(authMiddleware)
-		provider.Use(middleware.RequireRole("provider")) // Only providers
+		provider.Use(middleware.RequireRole("service_provider")) // Only service providers
 		{
 			provider.POST("/register", handler.RegisterProvider)
 			provider.GET("/orders", handler.GetProviderOrders)
