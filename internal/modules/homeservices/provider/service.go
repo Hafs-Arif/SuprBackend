@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/umar5678/go-backend/internal/models"
@@ -22,6 +23,10 @@ type WalletService interface {
 
 // Service defines the interface for provider business logic
 type Service interface {
+	// User ID to Provider ID conversion
+	GetProviderIDByUserID(ctx context.Context, userID string) (string, error)
+	CreateProviderOnFirstCategory(ctx context.Context, userID string) string
+
 	// Profile operations
 	GetProfile(ctx context.Context, providerID string) (*dto.ProviderProfileResponse, error)
 	UpdateAvailability(ctx context.Context, providerID string, req dto.UpdateAvailabilityRequest) error
@@ -63,9 +68,69 @@ func NewService(repo Repository, walletService WalletService) Service {
 	}
 }
 
+// GetProviderIDByUserID retrieves the provider ID from a user ID
+func (s *service) GetProviderIDByUserID(ctx context.Context, userID string) (string, error) {
+	// Query the provider repository to find provider by user ID
+	provider, err := s.repo.GetProviderByUserID(ctx, userID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", response.NotFoundError("Provider not found for this user")
+		}
+		logger.Error("failed to get provider by user ID", "error", err, "userID", userID)
+		return "", response.InternalServerError("Failed to retrieve provider", err)
+	}
+	return provider.ID, nil
+}
+
+// CreateProviderOnFirstCategory creates a provider profile on first category registration
+// This is called during the registration flow when a user adds their first service category
+func (s *service) CreateProviderOnFirstCategory(ctx context.Context, userID string) string {
+	// Generate a new provider ID using UUID
+	providerID := uuid.New().String()
+
+	// Create a new service provider profile
+	provider := &models.ServiceProviderProfile{
+		ID:              providerID,
+		UserID:          userID,
+		IsVerified:      false,
+		IsAvailable:     false,
+		ServiceType:     "service_provider",
+		ServiceCategory: "general", // Default category, will be updated when adding first category
+		Status:          models.SPStatusPendingApproval,
+	}
+
+	// Attempt to create the provider profile
+	if err := s.repo.CreateProvider(ctx, provider); err != nil {
+		logger.Error("failed to create provider profile on first category registration",
+			"error", err,
+			"userID", userID,
+			"providerID", providerID,
+		)
+		// Return the providerID anyway - the category might still be created
+		// and the user can try again if needed
+	}
+
+	logger.Info("provider profile created on first category registration",
+		"providerID", providerID,
+		"userID", userID,
+	)
+
+	return providerID
+}
+
 // ==================== Profile Operations ====================
 
 func (s *service) GetProfile(ctx context.Context, providerID string) (*dto.ProviderProfileResponse, error) {
+	// Get provider from database
+	provider, err := s.repo.GetProvider(ctx, providerID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, response.NotFoundError("Provider not found")
+		}
+		logger.Error("failed to get provider", "error", err, "providerID", providerID)
+		return nil, response.InternalServerError("Failed to get profile", err)
+	}
+
 	// Get service categories
 	categories, err := s.repo.GetProviderCategories(ctx, providerID)
 	if err != nil {
@@ -81,19 +146,27 @@ func (s *service) GetProfile(ctx context.Context, providerID string) (*dto.Provi
 		stats = &dto.ProviderStatistics{}
 	}
 
-	// TODO: Get actual user/provider profile from users table
-	// For now, returning a placeholder
+	// Build profile response
+	email := ""
+	phone := ""
+	if provider.User.Email != nil {
+		email = *provider.User.Email
+	}
+	if provider.User.Phone != nil {
+		phone = *provider.User.Phone
+	}
+
 	profile := &dto.ProviderProfileResponse{
-		ID:                providerID,
-		UserID:            providerID,
-		Name:              "Provider Name", // Load from users table
-		Email:             "provider@example.com",
-		Phone:             "+1234567890",
-		IsVerified:        true,
-		IsAvailable:       true,
+		ID:                provider.ID,
+		UserID:            provider.UserID,
+		Name:              provider.User.Name,
+		Email:             email,
+		Phone:             phone,
+		IsVerified:        provider.IsVerified,
+		IsAvailable:       provider.IsAvailable,
 		ServiceCategories: dto.ToServiceCategoryResponses(categories),
 		Statistics:        *stats,
-		CreatedAt:         time.Now(),
+		CreatedAt:         provider.CreatedAt,
 	}
 
 	return profile, nil
@@ -220,7 +293,36 @@ func (s *service) GetAvailableOrders(ctx context.Context, providerID string, que
 		return nil, nil, response.InternalServerError("Failed to get available orders", err)
 	}
 
+	logger.Info("fetched provider category slugs", "providerID", providerID, "categories", categorySlugs)
+
+	// Also include the provider profile's service type/category (if set)
+	// so providers that registered via profile.ServiceType still receive orders.
+	if provider, perr := s.repo.GetProvider(ctx, providerID); perr == nil && provider != nil {
+		logger.Info("fetched provider profile", "providerID", providerID, "serviceType", provider.ServiceType, "serviceCategory", provider.ServiceCategory)
+
+		// helper: add if not present
+		addIfMissing := func(slice []string, v string) []string {
+			if v == "" {
+				return slice
+			}
+			for _, s := range slice {
+				if s == v {
+					return slice
+				}
+			}
+			return append(slice, v)
+		}
+
+		categorySlugs = addIfMissing(categorySlugs, provider.ServiceType)
+		categorySlugs = addIfMissing(categorySlugs, provider.ServiceCategory)
+		logger.Info("merged profile categories with registered categories", "providerID", providerID, "mergedCategories", categorySlugs)
+	} else if perr != nil && perr != gorm.ErrRecordNotFound {
+		logger.Error("failed to get provider profile", "error", perr, "providerID", providerID)
+		return nil, nil, response.InternalServerError("Failed to get available orders", perr)
+	}
+
 	if len(categorySlugs) == 0 {
+		logger.Warn("provider has no active categories", "providerID", providerID)
 		// Provider has no active categories
 		return []dto.AvailableOrderResponse{}, &response.PaginationMeta{
 			Total:      0,

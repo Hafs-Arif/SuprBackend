@@ -2,6 +2,20 @@
 
 ## Table of Contents
 
+1. [Architecture Overview](#architecture-overview)
+2. [Quick Start Checklist](#quick-start-checklist)
+3. [Feature Development Process](#feature-development-process)
+4. [Step-by-Step Examples](#step-by-step-examples)
+   - [Example 1: Simple CRUD Feature (Posts)](#example-1-simple-crud-feature-posts)
+   - [Example 2: Real-time Feature with WebSocket (Messages)](#example-2-real-time-feature-with-websocket-messages)
+5. [Best Practices](#best-practices)
+6. [Common Patterns](#common-patterns)
+7. [Pagination Implementation](#pagination-implementation)
+8. [Testing Guidelines](#testing-guidelines)
+9. [Troubleshooting](#troubleshooting)
+10. [Quick Reference](#quick-reference)
+11. [Learning Path](#learning-path)
+12. [Summary Checklist](#summary-checklist)
 
 ---
 

@@ -208,11 +208,11 @@ type ServiceOrderNew struct {
 	WalletHoldID *string      `gorm:"type:uuid" json:"walletHoldId,omitempty"`
 
 	// Provider
-	AssignedProviderID  *string    `gorm:"type:uuid;index" json:"assignedProviderId"`
-	AssignedProvider    *User      `gorm:"foreignKey:AssignedProviderID" json:"assignedProvider,omitempty"`
-	ProviderAcceptedAt  *time.Time `json:"providerAcceptedAt"`
-	ProviderStartedAt   *time.Time `json:"providerStartedAt"`
-	ProviderCompletedAt *time.Time `json:"providerCompletedAt"`
+	AssignedProviderID  *string                 `gorm:"type:uuid;index" json:"assignedProviderId"`
+	AssignedProvider    *ServiceProviderProfile `gorm:"foreignKey:AssignedProviderID;references:ID" json:"assignedProvider,omitempty"`
+	ProviderAcceptedAt  *time.Time              `json:"providerAcceptedAt"`
+	ProviderStartedAt   *time.Time              `json:"providerStartedAt"`
+	ProviderCompletedAt *time.Time              `json:"providerCompletedAt"`
 
 	// Status
 	Status string `gorm:"type:varchar(50);not null;default:'pending';index" json:"status"`

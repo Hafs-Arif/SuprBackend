@@ -3,6 +3,7 @@ package provider
 import (
 	"github.com/gin-gonic/gin"
 
+   	"github.com/umar5678/go-backend/internal/models"
 	"github.com/umar5678/go-backend/internal/modules/homeservices/provider/dto"
 	"github.com/umar5678/go-backend/internal/utils/response"
 )
@@ -15,6 +16,26 @@ type Handler struct {
 // NewHandler creates a new provider handler
 func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
+}
+
+// getProviderIDFromContext extracts userID and converts it to providerID
+// Returns empty string if user is service_provider role but doesn't have profile yet (during registration)
+func (h *Handler) getProviderIDFromContext(c *gin.Context) (string, error) {
+	userID, _ := c.Get("userID")
+	userRole, _ := c.Get("userRole")
+
+	providerID, err := h.service.GetProviderIDByUserID(c.Request.Context(), userID.(string))
+	if err != nil {
+		// Check if user is a service provider (allow during registration process)
+		if userRole == string(models.RoleServiceProvider) {
+			// User is a service provider but doesn't have a profile yet
+			// This is OK during registration - return empty string to indicate "not yet registered"
+			return "", nil
+		}
+		// User is not a service provider, deny access
+		return "", response.UnauthorizedError("You must be a service provider to access this endpoint")
+	}
+	return providerID, nil
 }
 
 // ==================== Profile Handlers ====================
@@ -30,9 +51,13 @@ func NewHandler(service Service) *Handler {
 // @Failure 500 {object} response.Response
 // @Router /provider/profile [get]
 func (h *Handler) GetProfile(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	profile, err := h.service.GetProfile(c.Request.Context(), providerID.(string))
+	profile, err := h.service.GetProfile(c.Request.Context(), providerID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -54,7 +79,11 @@ func (h *Handler) GetProfile(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/availability [patch]
 func (h *Handler) UpdateAvailability(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	var req dto.UpdateAvailabilityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -62,7 +91,7 @@ func (h *Handler) UpdateAvailability(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateAvailability(c.Request.Context(), providerID.(string), req); err != nil {
+	if err := h.service.UpdateAvailability(c.Request.Context(), providerID, req); err != nil {
 		c.Error(err)
 		return
 	}
@@ -74,7 +103,7 @@ func (h *Handler) UpdateAvailability(c *gin.Context) {
 
 // GetServiceCategories godoc
 // @Summary Get service categories
-// @Description Get provider's registered service categories
+// @Description Get provider's registered service categories. Returns empty list if provider is still in registration process.
 // @Tags Provider - Categories
 // @Produce json
 // @Security BearerAuth
@@ -82,9 +111,19 @@ func (h *Handler) UpdateAvailability(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/categories [get]
 func (h *Handler) GetServiceCategories(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	categories, err := h.service.GetServiceCategories(c.Request.Context(), providerID.(string))
+	// If providerID is empty, user is service provider but not yet registered
+	if providerID == "" {
+		response.Success(c, []dto.ServiceCategoryResponse{}, "No categories yet - user is in registration process")
+		return
+	}
+
+	categories, err := h.service.GetServiceCategories(c.Request.Context(), providerID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -95,7 +134,7 @@ func (h *Handler) GetServiceCategories(c *gin.Context) {
 
 // AddServiceCategory godoc
 // @Summary Add service category
-// @Description Add a new service category to provider's profile
+// @Description Add a new service category to provider's profile. If provider doesn't exist yet, creates the profile during first registration.
 // @Tags Provider - Categories
 // @Accept json
 // @Produce json
@@ -107,7 +146,12 @@ func (h *Handler) GetServiceCategories(c *gin.Context) {
 // @Failure 409 {object} response.Response
 // @Router /provider/categories [post]
 func (h *Handler) AddServiceCategory(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	userID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	var req dto.AddServiceCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -115,13 +159,20 @@ func (h *Handler) AddServiceCategory(c *gin.Context) {
 		return
 	}
 
-	category, err := h.service.AddServiceCategory(c.Request.Context(), providerID.(string), req)
+	// If providerID is empty, create the provider profile first
+	if providerID == "" {
+		// Create provider profile on first category registration
+		// This is part of the registration flow
+		providerID = h.service.CreateProviderOnFirstCategory(c.Request.Context(), userID.(string))
+	}
+
+	category, err := h.service.AddServiceCategory(c.Request.Context(), providerID, req)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	response.Success(c, category, "Category added successfully")
+	response.Success(c, category, "Category added successfully", "PROVIDER_CATEGORY_ADDED")
 }
 
 // UpdateServiceCategory godoc
@@ -139,7 +190,11 @@ func (h *Handler) AddServiceCategory(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/categories/{categorySlug} [put]
 func (h *Handler) UpdateServiceCategory(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	categorySlug := c.Param("categorySlug")
 
 	var req dto.UpdateServiceCategoryRequest
@@ -148,7 +203,7 @@ func (h *Handler) UpdateServiceCategory(c *gin.Context) {
 		return
 	}
 
-	category, err := h.service.UpdateServiceCategory(c.Request.Context(), providerID.(string), categorySlug, req)
+	category, err := h.service.UpdateServiceCategory(c.Request.Context(), providerID, categorySlug, req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -169,10 +224,14 @@ func (h *Handler) UpdateServiceCategory(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/categories/{categorySlug} [delete]
 func (h *Handler) DeleteServiceCategory(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	categorySlug := c.Param("categorySlug")
 
-	if err := h.service.DeleteServiceCategory(c.Request.Context(), providerID.(string), categorySlug); err != nil {
+	if err := h.service.DeleteServiceCategory(c.Request.Context(), providerID, categorySlug); err != nil {
 		c.Error(err)
 		return
 	}
@@ -198,7 +257,14 @@ func (h *Handler) DeleteServiceCategory(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/orders/available [get]
 func (h *Handler) GetAvailableOrders(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	userID, _ := c.Get("userID")
+
+	// Convert user ID to provider ID
+	providerID, err := h.service.GetProviderIDByUserID(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	var query dto.ListAvailableOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -206,7 +272,7 @@ func (h *Handler) GetAvailableOrders(c *gin.Context) {
 		return
 	}
 
-	orders, pagination, err := h.service.GetAvailableOrders(c.Request.Context(), providerID.(string), query)
+	orders, pagination, err := h.service.GetAvailableOrders(c.Request.Context(), providerID, query)
 	if err != nil {
 		c.Error(err)
 		return
@@ -227,10 +293,14 @@ func (h *Handler) GetAvailableOrders(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/available/{id} [get]
 func (h *Handler) GetAvailableOrderDetail(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
-	order, err := h.service.GetAvailableOrderDetail(c.Request.Context(), providerID.(string), orderID)
+	order, err := h.service.GetAvailableOrderDetail(c.Request.Context(), providerID, orderID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -258,7 +328,11 @@ func (h *Handler) GetAvailableOrderDetail(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/orders [get]
 func (h *Handler) GetMyOrders(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	var query dto.ListMyOrdersQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -270,7 +344,7 @@ func (h *Handler) GetMyOrders(c *gin.Context) {
 		query.SortDesc = true
 	}
 
-	orders, pagination, err := h.service.GetMyOrders(c.Request.Context(), providerID.(string), query)
+	orders, pagination, err := h.service.GetMyOrders(c.Request.Context(), providerID, query)
 	if err != nil {
 		c.Error(err)
 		return
@@ -291,10 +365,14 @@ func (h *Handler) GetMyOrders(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id} [get]
 func (h *Handler) GetMyOrderDetail(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
-	order, err := h.service.GetMyOrderDetail(c.Request.Context(), providerID.(string), orderID)
+	order, err := h.service.GetMyOrderDetail(c.Request.Context(), providerID, orderID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -318,10 +396,14 @@ func (h *Handler) GetMyOrderDetail(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id}/accept [post]
 func (h *Handler) AcceptOrder(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
-	order, err := h.service.AcceptOrder(c.Request.Context(), providerID.(string), orderID)
+	order, err := h.service.AcceptOrder(c.Request.Context(), providerID, orderID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -345,7 +427,11 @@ func (h *Handler) AcceptOrder(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id}/reject [post]
 func (h *Handler) RejectOrder(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
 	var req dto.RejectOrderRequest
@@ -354,7 +440,7 @@ func (h *Handler) RejectOrder(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.RejectOrder(c.Request.Context(), providerID.(string), orderID, req); err != nil {
+	if err := h.service.RejectOrder(c.Request.Context(), providerID, orderID, req); err != nil {
 		c.Error(err)
 		return
 	}
@@ -375,10 +461,14 @@ func (h *Handler) RejectOrder(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id}/start [post]
 func (h *Handler) StartOrder(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
-	order, err := h.service.StartOrder(c.Request.Context(), providerID.(string), orderID)
+	order, err := h.service.StartOrder(c.Request.Context(), providerID, orderID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -402,13 +492,17 @@ func (h *Handler) StartOrder(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id}/complete [post]
 func (h *Handler) CompleteOrder(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
 	var req dto.CompleteOrderRequest
 	c.ShouldBindJSON(&req) // Optional body
 
-	order, err := h.service.CompleteOrder(c.Request.Context(), providerID.(string), orderID, req)
+	order, err := h.service.CompleteOrder(c.Request.Context(), providerID, orderID, req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -432,7 +526,11 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 // @Failure 404 {object} response.Response
 // @Router /provider/orders/{id}/rate [post]
 func (h *Handler) RateCustomer(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 	orderID := c.Param("id")
 
 	var req dto.RateCustomerRequest
@@ -441,7 +539,7 @@ func (h *Handler) RateCustomer(c *gin.Context) {
 		return
 	}
 
-	order, err := h.service.RateCustomer(c.Request.Context(), providerID.(string), orderID, req)
+	order, err := h.service.RateCustomer(c.Request.Context(), providerID, orderID, req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -462,9 +560,13 @@ func (h *Handler) RateCustomer(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/statistics [get]
 func (h *Handler) GetStatistics(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	stats, err := h.service.GetStatistics(c.Request.Context(), providerID.(string))
+	stats, err := h.service.GetStatistics(c.Request.Context(), providerID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -487,7 +589,11 @@ func (h *Handler) GetStatistics(c *gin.Context) {
 // @Failure 401 {object} response.Response
 // @Router /provider/earnings [get]
 func (h *Handler) GetEarnings(c *gin.Context) {
-	providerID, _ := c.Get("userID")
+	providerID, err := h.getProviderIDFromContext(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	var query dto.EarningsQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
@@ -495,7 +601,7 @@ func (h *Handler) GetEarnings(c *gin.Context) {
 		return
 	}
 
-	earnings, err := h.service.GetEarnings(c.Request.Context(), providerID.(string), query)
+	earnings, err := h.service.GetEarnings(c.Request.Context(), providerID, query)
 	if err != nil {
 		c.Error(err)
 		return

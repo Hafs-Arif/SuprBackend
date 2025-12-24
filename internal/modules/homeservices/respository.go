@@ -8,6 +8,7 @@ import (
 
 	"github.com/umar5678/go-backend/internal/models"
 	homeServiceDto "github.com/umar5678/go-backend/internal/modules/homeservices/dto"
+	"github.com/umar5678/go-backend/internal/utils/logger"
 )
 
 type Repository interface {
@@ -22,6 +23,7 @@ type Repository interface {
 	GetServiceWithOptions(ctx context.Context, id uint) (*models.Service, error)
 	GetServicesByIDs(ctx context.Context, ids []uint) ([]*models.Service, error)
 	GetServicesByUUIDs(ctx context.Context, ids []string) ([]*models.ServiceNew, error)
+	GetServiceNewByID(ctx context.Context, id string) (*models.ServiceNew, error)
 
 	ListTabs(ctx context.Context, categoryID uint) ([]models.ServiceTab, error)
 	GetTabByID(ctx context.Context, id uint) (*models.ServiceTab, error)
@@ -43,11 +45,11 @@ type Repository interface {
 	AssignProviderToOrder(ctx context.Context, providerID, orderID string) error
 
 	// Provider Registeration
-	FindProviderByUserID(ctx context.Context, userID string) (*models.ServiceProvider, error)
+	FindProviderByUserID(ctx context.Context, userID string) (*models.ServiceProviderProfile, error)
 
 	// Provider Matching
 	FindNearestAvailableProviders(ctx context.Context, serviceIDs []uint, lat, lon float64, radiusMeters int) ([]models.ServiceProvider, error)
-	GetProviderByID(ctx context.Context, providerID string) (*models.ServiceProvider, error)
+	GetProviderByID(ctx context.Context, providerID string) (*models.ServiceProviderProfile, error)
 	UpdateProviderStatus(ctx context.Context, providerID, status string) error
 	UpdateProviderLocation(ctx context.Context, providerID string, lat, lon float64) error
 
@@ -58,7 +60,7 @@ type Repository interface {
 	CreateOptionChoice(ctx context.Context, choice *models.ServiceOptionChoice) error
 
 	// Provider Management
-	CreateProvider(ctx context.Context, provider *models.ServiceProvider, lat, lon float64) error
+	CreateProvider(ctx context.Context, provider *models.ServiceProviderProfile) error
 	AssignServiceToProvider(ctx context.Context, providerID string, serviceID string) error
 	RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID string) error
 	AddProviderCategory(ctx context.Context, category *models.ProviderServiceCategory) error
@@ -108,11 +110,28 @@ func (r *repository) CreateCategory(ctx context.Context, category *models.Servic
 
 func (r *repository) GetAllCategorySlugs(ctx context.Context) ([]string, error) {
 	var slugs []string
+
+	// Get distinct category slugs from all sources (ServiceNew, services, laundry products, etc.)
+	// Using UNION to combine results from multiple tables
 	err := r.db.WithContext(ctx).
-		Model(&models.ServiceNew{}).
-		Distinct("category_slug").
-		Order("category_slug ASC").
-		Pluck("category_slug", &slugs).Error
+		Raw(`
+			SELECT DISTINCT category_slug FROM (
+				-- From ServiceNew table
+				SELECT DISTINCT category_slug FROM services WHERE category_slug IS NOT NULL AND category_slug != ''
+				UNION
+				-- From services table
+				SELECT DISTINCT category_slug FROM services WHERE category_slug IS NOT NULL AND category_slug != ''
+				UNION
+				-- From laundry_service_products table
+				SELECT DISTINCT category_slug FROM laundry_service_products WHERE category_slug IS NOT NULL AND category_slug != ''
+				UNION
+				-- From laundry_service_catalog table
+				SELECT DISTINCT category_slug FROM laundry_service_catalog WHERE category_slug IS NOT NULL AND category_slug != ''
+			) AS all_slugs
+			ORDER BY category_slug ASC
+		`).
+		Scan(&slugs).Error
+
 	return slugs, err
 }
 
@@ -232,6 +251,14 @@ func (r *repository) GetServicesByUUIDs(ctx context.Context, ids []string) ([]*m
 	return services, err
 }
 
+func (r *repository) GetServiceNewByID(ctx context.Context, id string) (*models.ServiceNew, error) {
+	var service models.ServiceNew
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&service).Error
+	return &service, err
+}
+
 // ==================== ADD-ONS ====================
 
 func (r *repository) ListAddOns(ctx context.Context, categoryID uint) ([]models.AddOnService, error) {
@@ -313,10 +340,11 @@ func (r *repository) GetOrderByIDWithDetails(ctx context.Context, id string) (*m
 }
 
 func (r *repository) ListUserOrders(ctx context.Context, userID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
-	var orders []*models.ServiceOrder
+	var ordersNew []*models.ServiceOrderNew
 	var total int64
 
-	db := r.db.WithContext(ctx).Model(&models.ServiceOrder{}).Where("user_id = ?", userID)
+	// Query ServiceOrderNew which has customer_id field
+	db := r.db.WithContext(ctx).Model(&models.ServiceOrderNew{}).Where("customer_id = ?", userID)
 
 	if query.Status != nil {
 		db = db.Where("status = ?", *query.Status)
@@ -331,18 +359,27 @@ func (r *repository) ListUserOrders(ctx context.Context, userID string, query ho
 	err := db.Order("created_at DESC").
 		Offset(query.GetOffset()).
 		Limit(query.Limit).
-		Preload("Items").
-		Preload("AddOns").
-		Find(&orders).Error
+		Find(&ordersNew).Error
 
-	return orders, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Convert ServiceOrderNew to ServiceOrder for API compatibility
+	orders := make([]*models.ServiceOrder, len(ordersNew))
+	for i, orderNew := range ordersNew {
+		orders[i] = convertServiceOrderNewToServiceOrder(orderNew)
+	}
+
+	return orders, total, nil
 }
 
 func (r *repository) ListProviderOrders(ctx context.Context, providerID string, query homeServiceDto.ListOrdersQuery) ([]*models.ServiceOrder, int64, error) {
-	var orders []*models.ServiceOrder
+	var ordersNew []*models.ServiceOrderNew
 	var total int64
 
-	db := r.db.WithContext(ctx).Model(&models.ServiceOrder{}).Where("provider_id = ?", providerID)
+	// Query ServiceOrderNew which has assigned_provider_id field
+	db := r.db.WithContext(ctx).Model(&models.ServiceOrderNew{}).Where("assigned_provider_id = ?", providerID)
 
 	if query.Status != nil {
 		db = db.Where("status = ?", *query.Status)
@@ -354,14 +391,22 @@ func (r *repository) ListProviderOrders(ctx context.Context, providerID string, 
 	}
 
 	// Fetch with pagination
-	err := db.Order("service_date ASC").
+	err := db.Order("created_at ASC").
 		Offset(query.GetOffset()).
 		Limit(query.Limit).
-		Preload("Items").
-		Preload("AddOns").
-		Find(&orders).Error
+		Find(&ordersNew).Error
 
-	return orders, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Convert ServiceOrderNew to ServiceOrder for API compatibility
+	orders := make([]*models.ServiceOrder, len(ordersNew))
+	for i, orderNew := range ordersNew {
+		orders[i] = convertServiceOrderNewToServiceOrder(orderNew)
+	}
+
+	return orders, total, nil
 }
 
 func (r *repository) UpdateOrderStatus(ctx context.Context, orderID, status string) error {
@@ -403,18 +448,19 @@ func (r *repository) AssignProviderToOrder(ctx context.Context, providerID, orde
 func (r *repository) FindNearestAvailableProviders(ctx context.Context, serviceIDs []uint, lat, lon float64, radiusMeters int) ([]models.ServiceProvider, error) {
 	var providers []models.ServiceProvider
 
-	// Complex query using PostGIS for geospatial search
+	// Query to find providers by their service category
+	// Providers are matched based on their registered service category, not explicit service assignments
+	// This way, providers automatically get access to all services in their category, including future ones
 	err := r.db.WithContext(ctx).
 		Table("service_providers").
 		Select("DISTINCT service_providers.*").
-		Joins("JOIN provider_qualified_services pqs ON pqs.provider_id = service_providers.id").
+		Joins("JOIN services ON services.category_slug = service_providers.service_category").
 		Where("service_providers.status = ?", "available").
 		Where("service_providers.is_verified = ?", true).
-		Where("pqs.service_id IN ?", serviceIDs).
+		Where("services.id IN ?", serviceIDs).
 		Where("ST_DWithin(service_providers.location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)",
 			lon, lat, radiusMeters).
 		Group("service_providers.id").
-		Having("COUNT(DISTINCT pqs.service_id) = ?", len(serviceIDs)). // Must be qualified for ALL services
 		Order(fmt.Sprintf("ST_Distance(service_providers.location::geography, ST_SetSRID(ST_MakePoint(%f, %f), 4326)::geography)", lon, lat)).
 		Limit(10). // Top 10 nearest
 		Scan(&providers).Error
@@ -422,8 +468,8 @@ func (r *repository) FindNearestAvailableProviders(ctx context.Context, serviceI
 	return providers, err
 }
 
-func (r *repository) GetProviderByID(ctx context.Context, providerID string) (*models.ServiceProvider, error) {
-	var provider models.ServiceProvider
+func (r *repository) GetProviderByID(ctx context.Context, providerID string) (*models.ServiceProviderProfile, error) {
+	var provider models.ServiceProviderProfile
 	err := r.db.WithContext(ctx).
 		Where("id = ?", providerID).
 		First(&provider).Error
@@ -456,8 +502,8 @@ func (r *repository) GetUserByID(ctx context.Context, userID string) (*models.Us
 // }
 
 // Find provider by user ID
-func (r *repository) FindProviderByUserID(ctx context.Context, userID string) (*models.ServiceProvider, error) {
-	var provider models.ServiceProvider
+func (r *repository) FindProviderByUserID(ctx context.Context, userID string) (*models.ServiceProviderProfile, error) {
+	var provider models.ServiceProviderProfile
 	err := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		First(&provider).Error
@@ -495,31 +541,31 @@ func (r *repository) CreateOptionChoice(ctx context.Context, choice *models.Serv
 
 // --- Provider Management ---
 
-func (r *repository) CreateProvider(ctx context.Context, provider *models.ServiceProvider, lat, lon float64) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Create provider with location
-		result := tx.Exec(`
-            INSERT INTO service_providers (
-                id, user_id, photo, rating, status, location, is_verified,
-                total_jobs, completed_jobs, created_at, updated_at
-            ) VALUES (
-                ?, ?, ?, ?, ?, ST_SetSRID(ST_MakePoint(?, ?), 4326), ?,
-                ?, ?, NOW(), NOW()
-            )`,
-			provider.ID, provider.UserID, provider.Photo, provider.Rating,
-			provider.Status, lon, lat, provider.IsVerified,
-			provider.TotalJobs, provider.CompletedJobs,
-		)
-		return result.Error
-	})
+func (r *repository) CreateProvider(ctx context.Context, provider *models.ServiceProviderProfile) error {
+	return r.db.WithContext(ctx).Create(provider).Error
 }
 
 func (r *repository) AssignServiceToProvider(ctx context.Context, providerID string, serviceID string) error {
-	return r.db.WithContext(ctx).Exec(`
+	logger.Info("attempting to assign service to provider", "providerID", providerID, "serviceID", serviceID)
+
+	result := r.db.WithContext(ctx).Exec(`
         INSERT INTO provider_qualified_services (provider_id, service_id)
         VALUES (?, ?)
         ON CONFLICT DO NOTHING
-    `, providerID, serviceID).Error
+    `, providerID, serviceID)
+
+	if result.Error != nil {
+		logger.Error("failed to assign service to provider", "error", result.Error, "providerID", providerID, "serviceID", serviceID)
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		logger.Warn("service assignment returned 0 rows affected (likely already exists)", "providerID", providerID, "serviceID", serviceID)
+	} else {
+		logger.Info("service assigned successfully", "providerID", providerID, "serviceID", serviceID, "rowsAffected", result.RowsAffected)
+	}
+
+	return nil
 }
 
 func (r *repository) RemoveServiceFromProvider(ctx context.Context, providerID string, serviceID string) error {
@@ -542,4 +588,31 @@ func (r *repository) GetProviderCategory(ctx context.Context, providerID string,
 		return nil, err
 	}
 	return &category, nil
+}
+
+// convertServiceOrderNewToServiceOrder converts ServiceOrderNew to ServiceOrder for API compatibility
+func convertServiceOrderNewToServiceOrder(orderNew *models.ServiceOrderNew) *models.ServiceOrder {
+	if orderNew == nil {
+		return nil
+	}
+
+	return &models.ServiceOrder{
+		ID:           orderNew.ID,
+		Code:         orderNew.OrderNumber,
+		UserID:       orderNew.CustomerID,
+		Status:       orderNew.Status,
+		Address:      orderNew.CustomerInfo.Address,
+		Latitude:     orderNew.CustomerInfo.Lat,
+		Longitude:    orderNew.CustomerInfo.Lng,
+		ServiceDate:  orderNew.CreatedAt,
+		CategorySlug: orderNew.CategorySlug,
+		Subtotal:     orderNew.ServicesTotal,
+		Total:        orderNew.TotalPrice,
+		PlatformFee:  orderNew.PlatformCommission,
+		CreatedAt:    orderNew.CreatedAt,
+		AcceptedAt:   orderNew.ProviderAcceptedAt,
+		StartedAt:    orderNew.ProviderStartedAt,
+		CompletedAt:  orderNew.ProviderCompletedAt,
+		CancelledAt:  orderNew.CompletedAt, // Map completed time as fallback
+	}
 }

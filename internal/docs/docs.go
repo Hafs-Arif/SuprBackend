@@ -2178,6 +2178,641 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/laundry/orders": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new laundry order with selected products. The system will:",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Laundry Orders"
+                ],
+                "summary": "Create Laundry Order",
+                "parameters": [
+                    {
+                        "description": "Order creation request with product selections",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.CreateLaundryOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Order created successfully with calculated pricing",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request or validation failed",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create order",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/orders/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve full details of a laundry order including pickup, delivery, items, and issues",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Laundry Orders"
+                ],
+                "summary": "Get Order Details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order details",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/orders/{id}/issues": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Report a problem with a laundry order (e.g., missing item, damage, poor cleaning, late delivery)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Laundry Issues"
+                ],
+                "summary": "Report Issue on Order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Issue report",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.ReportIssueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Issue created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryIssueResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/orders/{id}/pickup/start": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Report a problem with a laundry order (e.g., missing item, damage, poor cleaning, late delivery)\nStart a pickup for a laundry order at the specified location",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Pickups"
+                ],
+                "summary": "Initiate Pickup for Order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pickup initiated",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/deliveries": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve all pending deliveries assigned to the authenticated service provider",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Deliveries"
+                ],
+                "summary": "Get Provider Deliveries",
+                "responses": {
+                    "200": {
+                        "description": "List of pending deliveries",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/issues": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve all open issues reported for orders assigned to the authenticated service provider",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Issues"
+                ],
+                "summary": "Get Provider Issues",
+                "responses": {
+                    "200": {
+                        "description": "List of open issues",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryIssueResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/issues/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Resolve a customer issue (mark as resolved or rejected) and optionally process a refund",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Issues"
+                ],
+                "summary": "Resolve Issue",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Issue ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Resolution details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.ResolveIssueRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Issue resolved",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryIssueResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/items/{qrCode}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update the processing status of a laundry item (garment). Valid statuses: pending, received, washing, drying, pressing, packed, delivered",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Items"
+                ],
+                "summary": "Update Item Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Item QR Code (e.g., LDY-abc12345)",
+                        "name": "qrCode",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New status",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.UpdateItemStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Item status updated",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderItemResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/orders/available": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get all available laundry orders that match provider's service category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Orders"
+                ],
+                "summary": "Get Available Orders for Provider",
+                "responses": {
+                    "200": {
+                        "description": "Available orders for provider",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch available orders",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/orders/{id}/delivery/complete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Mark a delivery as completed and record delivery details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Deliveries"
+                ],
+                "summary": "Complete Delivery",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Delivery completion details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.CompleteDeliveryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Delivery completed successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/orders/{id}/delivery/start": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Mark a laundry order delivery as initiated (provider is en route to deliver)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Deliveries"
+                ],
+                "summary": "Initiate Delivery",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Delivery initiated",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/orders/{id}/items": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Add laundry items (garments) to an order after pickup is completed. Each item gets a unique QR code",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Items"
+                ],
+                "summary": "Add Items to Order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Items to add",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.AddLaundryItemsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Items created with QR codes",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderItemResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/orders/{id}/pickup/complete": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Mark a pickup as completed and record pickup details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Pickups"
+                ],
+                "summary": "Complete Pickup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Pickup completion details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.CompletePickupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pickup completed successfully",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/provider/pickups": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieve all pending pickups assigned to the authenticated service provider",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Provider - Pickups"
+                ],
+                "summary": "Get Provider Pickups",
+                "responses": {
+                    "200": {
+                        "description": "List of pending pickups",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/services": {
+            "get": {
+                "description": "Retrieve all available laundry services with nested products, pricing information, and turnaround times",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Laundry Services"
+                ],
+                "summary": "Get Services With Products",
+                "responses": {
+                    "200": {
+                        "description": "Services with products",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryServiceResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch services",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/laundry/services/{slug}/products": {
+            "get": {
+                "description": "Retrieve all products available for a specific laundry service, including pricing and specifications",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Laundry Services"
+                ],
+                "summary": "Get Products for Service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Service slug (e.g., wash-fold, dry-clean)",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Products for the service",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.ProductResponse"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Service not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fetch products",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_utils_response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/email/login": {
             "post": {
                 "consumes": [
@@ -4072,7 +4707,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get provider's registered service categories",
+                "description": "Get provider's registered service categories. Returns empty list if provider is still in registration process.",
                 "produces": [
                     "application/json"
                 ],
@@ -4116,7 +4751,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Add a new service category to provider's profile",
+                "description": "Add a new service category to provider's profile. If provider doesn't exist yet, creates the profile during first registration.",
                 "consumes": [
                     "application/json"
                 ],
@@ -6260,7 +6895,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "home-services"
+                    "Provider - Profile"
                 ],
                 "summary": "Get all category slugs",
                 "responses": {
@@ -7973,11 +8608,24 @@ const docTemplate = `{
         "github_com_umar5678_go-backend_internal_modules_auth_dto.PhoneLoginRequest": {
             "type": "object",
             "required": [
-                "phone"
+                "phone",
+                "role"
             ],
             "properties": {
                 "phone": {
                     "type": "string"
+                },
+                "role": {
+                    "enum": [
+                        "rider",
+                        "driver",
+                        "service_provider"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_umar5678_go-backend_internal_models.UserRole"
+                        }
+                    ]
                 }
             }
         },
@@ -10935,8 +11583,8 @@ const docTemplate = `{
                     }
                 },
                 "serviceId": {
-                    "type": "integer",
-                    "minimum": 1
+                    "type": "string",
+                    "minLength": 1
                 }
             }
         },
@@ -11149,7 +11797,7 @@ const docTemplate = `{
                     "additionalProperties": true
                 },
                 "serviceId": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "serviceName": {
                     "type": "string"
@@ -11366,8 +12014,7 @@ const docTemplate = `{
             "required": [
                 "categorySlug",
                 "latitude",
-                "longitude",
-                "serviceIds"
+                "longitude"
             ],
             "properties": {
                 "businessName": {
@@ -11392,13 +12039,6 @@ const docTemplate = `{
                 },
                 "photo": {
                     "type": "string"
-                },
-                "serviceIds": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "integer"
-                    }
                 }
             }
         },
@@ -12330,6 +12970,661 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 50,
                     "minimum": 0
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.AddItemDTO": {
+            "type": "object",
+            "required": [
+                "itemType",
+                "price",
+                "productSlug",
+                "quantity",
+                "serviceSlug"
+            ],
+            "properties": {
+                "itemType": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "productSlug": {
+                    "description": "Changed from ItemType",
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "serviceSlug": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.AddLaundryItemsRequest": {
+            "type": "object",
+            "required": [
+                "items"
+            ],
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.AddItemDTO"
+                    }
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.CompleteDeliveryRequest": {
+            "type": "object",
+            "required": [
+                "recipientName"
+            ],
+            "properties": {
+                "notes": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                },
+                "recipientName": {
+                    "type": "string"
+                },
+                "recipientSignature": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.CompletePickupRequest": {
+            "type": "object",
+            "required": [
+                "bagCount"
+            ],
+            "properties": {
+                "bagCount": {
+                    "type": "integer"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.CreateLaundryOrderRequest": {
+            "type": "object",
+            "required": [
+                "address",
+                "items",
+                "lat",
+                "lng",
+                "pickupDate",
+                "pickupTime",
+                "serviceSlug"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "isExpress": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.OrderItemRequest"
+                    }
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lng": {
+                    "type": "number"
+                },
+                "pickupDate": {
+                    "type": "string"
+                },
+                "pickupTime": {
+                    "type": "string"
+                },
+                "serviceSlug": {
+                    "type": "string"
+                },
+                "specialNotes": {
+                    "type": "string"
+                },
+                "tip": {
+                    "description": "Optional tip for delivery person",
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryDTO": {
+            "type": "object",
+            "properties": {
+                "arrivedAt": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "deliveredAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                },
+                "providerId": {
+                    "type": "string"
+                },
+                "recipientName": {
+                    "type": "string"
+                },
+                "recipientSignature": {
+                    "type": "string"
+                },
+                "rescheduleCount": {
+                    "type": "integer"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "deliveredAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                },
+                "providerId": {
+                    "type": "string"
+                },
+                "recipientName": {
+                    "type": "string"
+                },
+                "recipientSignature": {
+                    "type": "string"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryIssueResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "issueType": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "string"
+                },
+                "refundAmount": {
+                    "type": "number"
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "resolvedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderItemDTO": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "deliveredAt": {
+                    "type": "string"
+                },
+                "hasIssue": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "issueDescription": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "packedAt": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "productSlug": {
+                    "type": "string"
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "receivedAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderItemResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "qrCode": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "serviceSlug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderResponse": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "customerId": {
+                    "type": "string"
+                },
+                "delivery": {
+                    "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryDeliveryDTO"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isExpress": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryOrderItemDTO"
+                    }
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lng": {
+                    "type": "number"
+                },
+                "orderNumber": {
+                    "type": "string"
+                },
+                "pickup": {
+                    "$ref": "#/definitions/github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupDTO"
+                },
+                "providerId": {
+                    "type": "string"
+                },
+                "serviceSlug": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tip": {
+                    "type": "number"
+                },
+                "totalPrice": {
+                    "type": "number"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupDTO": {
+            "type": "object",
+            "properties": {
+                "arrivedAt": {
+                    "type": "string"
+                },
+                "bagCount": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                },
+                "pickedUpAt": {
+                    "type": "string"
+                },
+                "providerId": {
+                    "type": "string"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryPickupResponse": {
+            "type": "object",
+            "properties": {
+                "bagCount": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "orderId": {
+                    "type": "string"
+                },
+                "photoUrl": {
+                    "type": "string"
+                },
+                "pickedUpAt": {
+                    "type": "string"
+                },
+                "providerId": {
+                    "type": "string"
+                },
+                "scheduledAt": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.LaundryServiceResponse": {
+            "type": "object",
+            "properties": {
+                "basePrice": {
+                    "type": "number"
+                },
+                "categorySlug": {
+                    "type": "string"
+                },
+                "colorCode": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "expressFee": {
+                    "type": "number"
+                },
+                "expressHours": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "pricingUnit": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "turnaroundHours": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.OrderItemRequest": {
+            "type": "object",
+            "required": [
+                "productSlug",
+                "quantity"
+            ],
+            "properties": {
+                "notes": {
+                    "type": "string"
+                },
+                "productSlug": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "weight": {
+                    "description": "Optional, can be calculated from product",
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.ProductResponse": {
+            "type": "object",
+            "properties": {
+                "categorySlug": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "iconUrl": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "pricingUnit": {
+                    "type": "string"
+                },
+                "requiresSpecialCare": {
+                    "type": "boolean"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "specialCareFee": {
+                    "type": "number"
+                },
+                "typicalWeight": {
+                    "type": "number"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.ReportIssueRequest": {
+            "type": "object",
+            "required": [
+                "description",
+                "issueType"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "issueType": {
+                    "type": "string",
+                    "enum": [
+                        "missing_item",
+                        "damage",
+                        "poor_cleaning",
+                        "late_delivery",
+                        "wrong_item",
+                        "stain_not_removed",
+                        "color_bleeding",
+                        "shrinkage",
+                        "other"
+                    ]
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": [
+                        "low",
+                        "medium",
+                        "high",
+                        "urgent"
+                    ]
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.ResolveIssueRequest": {
+            "type": "object",
+            "required": [
+                "resolution"
+            ],
+            "properties": {
+                "compensationType": {
+                    "type": "string",
+                    "enum": [
+                        "refund",
+                        "discount",
+                        "re_clean",
+                        "replacement",
+                        "voucher"
+                    ]
+                },
+                "refundAmount": {
+                    "type": "number"
+                },
+                "resolution": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_umar5678_go-backend_internal_modules_laundry_dto.UpdateItemStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "received",
+                        "washing",
+                        "drying",
+                        "pressing",
+                        "packed",
+                        "delivered"
+                    ]
                 }
             }
         },
